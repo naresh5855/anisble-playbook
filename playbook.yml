@@ -5,40 +5,41 @@
     - main.yml
 
   tasks:
-    - name: Check if nginx.conf exists
-      stat:
-        path: "/gcp/{{ deploy_lane }}/conf/nginx.conf"
-      register: nginx_conf
-
     - name: Check if gcp_sys_workflows.ini exists
       stat:
         path: "/path/to/gcp_sys_workflows.ini"  # Adjust the path as needed
       register: uwsgi_ini
+
+    - name: Extract https port from gcp_sys_workflows.ini if it exists
+      command: grep -Po '(?<=https\s*=\s*.*:)([0-9]+)' /path/to/gcp_sys_workflows.ini  # Adjust the regex and path as needed
+      when: uwsgi_ini.stat.exists
+      register: uwsgi_port_https
+
+    - name: Check if nginx.conf exists
+      stat:
+        path: "/gcp/{{ deploy_lane }}/conf/nginx.conf"
+      when: not uwsgi_port_https
+      register: nginx_conf
 
     - name: Extract port from nginx.conf if it exists
       command: grep -Po '(?<=listen\s)[0-9]+' /gcp/{{ deploy_lane }}/conf/nginx.conf
       when: nginx_conf.stat.exists
       register: nginx_port
 
-    - name: Extract port from gcp_sys_workflows.ini if it exists
-      command: grep -Po '(?<=socket\s*=\s*127.0.0.1:)[0-9]+' /path/to/gcp_sys_workflows.ini  # Adjust the regex and path as needed
-      when: uwsgi_ini.stat.exists
-      register: uwsgi_port
+    - name: Set uwsgi port fact from gcp_sys_workflows.ini (https)
+      set_fact:
+        uwsgi_port: "{{ uwsgi_port_https.stdout }}"
+      when: uwsgi_ini.stat.exists and uwsgi_port_https
 
     - name: Set uwsgi port fact from nginx.conf
       set_fact:
         uwsgi_port: "{{ nginx_port.stdout }}"
-      when: nginx_conf.stat.exists
-
-    - name: Set uwsgi port fact from gcp_sys_workflows.ini
-      set_fact:
-        uwsgi_port: "{{ uwsgi_port.stdout }}"
-      when: not nginx_conf.stat.exists and uwsgi_ini.stat.exists
+      when: not uwsgi_port_https and nginx_conf.stat.exists
 
     - name: Set uwsgi port fact from default if no config found
       set_fact:
         uwsgi_port: "{{ default_uwsgi_port }}"
-      when: not nginx_conf.stat.exists and not uwsgi_ini.stat.exists
+      when: not uwsgi_port_https and not nginx_conf.stat.exists
 
     - name: Debug port selection
       debug:
