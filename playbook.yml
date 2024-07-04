@@ -1,43 +1,36 @@
 - name: Get the hostname
-  command: hostname
-  register: hostname_result
+  hosts: localhost
+  tasks:
+    - name: Get the hostname
+      command: hostname
+      register: hostname_result
 
-- name: Attempt to start sys_workflows and verify health
-  block:
-    - name: Start sys_workflows Version={{ version }}
-      shell: "./start-gcp-sys-workflows.sh --env={{ deploy_lane }}"
-      args:
-        chdir: "{{ app_bin }}"
-      register: results
-      until: results.rc == 0
-      retries: 3
-      delay: 15
+    - name: Initialize retry count
+      set_fact:
+        retry_count: 0
+        max_retries: 2
 
-    - name: Wait for uwsgi to be up and running
-      wait_for:
-        port: "{{ uwsgi_port }}"
-        host: "{{ hostname_result.stdout }}"
-        delay: 5
-        timeout: 30
-
-    - name: Verify uwsgi service health
-      uri:
-        url: "http://{{ hostname_result.stdout }}:{{ uwsgi_port }}/health"
-        return_content: yes
-      register: health_check
+    - name: Loop to start sys_workflows and verify health
+      include_tasks: start_sys_workflows_and_check_health.yml
       until: health_check.status == 200 and '"status":"ok"' in health_check.content
-      retries: 5
-      delay: 10
+      retries: 2
+      delay: 30
       ignore_errors: yes
+      vars:
+        version: "1.0"  # Replace with your version variable
+        deploy_lane: "test"  # Replace with your deploy lane variable
 
-    - name: Debug health check
+    - name: Debug Start GCP SYS WORKFLOWS Version Output if failed
       debug:
-        msg:
-          - "Health check status: {{ health_check.status }}"
-          - "Health check content: {{ health_check.content }}"
+        var: results
+      when: health_check.status != 200 or '"status":"ok"' not in health_check.content
 
-  register: block_results
-  until: block_results.results[-1].status == 200 and '"status":"ok"' in block_results.results[-1].content
-  retries: 2
-  delay: 30
-  ignore_errors: no
+    - name: Start GCP SYS WORKFLOWS Version Failed
+      fail:
+        msg: "Startup script failed. Error: {{ results.stderr_lines | join('\n') }}"
+      when: health_check.status != 200 or '"status":"ok"' not in health_check.content
+
+    - name: Check if the health check succeeded
+      fail:
+        msg: "Health check failed after retries. Status: {{ health_check.status }}, Content: {{ health_check.content }}"
+      when: health_check.status != 200 or '"status":"ok"' not in health_check.content
