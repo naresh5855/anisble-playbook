@@ -1,50 +1,9 @@
-- name: Deploy and Check GCP Service
-  hosts: my_hosts
-  gather_facts: yes
-  vars_files:
-    - main.yml
+- name: Get the hostname
+  command: hostname
+  register: hostname_result
 
-  tasks:
-    - name: Check if gcp_sys_workflows.ini exists
-      stat:
-        path: "/path/to/gcp_sys_workflows.ini"  # Adjust the path as needed
-      register: uwsgi_ini
-
-    - name: Extract https port from gcp_sys_workflows.ini if it exists
-      command: grep -Po '(?<=https\s*=\s*.*:)([0-9]+)' /path/to/gcp_sys_workflows.ini  # Adjust the regex and path as needed
-      when: uwsgi_ini.stat.exists
-      register: uwsgi_port_https
-
-    - name: Check if nginx.conf exists
-      stat:
-        path: "/gcp/{{ deploy_lane }}/conf/nginx.conf"
-      when: not uwsgi_port_https
-      register: nginx_conf
-
-    - name: Extract port from nginx.conf if it exists
-      command: grep -Po '(?<=listen\s)[0-9]+' /gcp/{{ deploy_lane }}/conf/nginx.conf
-      when: nginx_conf.stat.exists
-      register: nginx_port
-
-    - name: Set uwsgi port fact from gcp_sys_workflows.ini (https)
-      set_fact:
-        uwsgi_port: "{{ uwsgi_port_https.stdout }}"
-      when: uwsgi_ini.stat.exists and uwsgi_port_https
-
-    - name: Set uwsgi port fact from nginx.conf
-      set_fact:
-        uwsgi_port: "{{ nginx_port.stdout }}"
-      when: not uwsgi_port_https and nginx_conf.stat.exists
-
-    - name: Set uwsgi port fact from default if no config found
-      set_fact:
-        uwsgi_port: "{{ default_uwsgi_port }}"
-      when: not uwsgi_port_https and not nginx_conf.stat.exists
-
-    - name: Debug port selection
-      debug:
-        msg: "Selected uwsgi port is {{ uwsgi_port }}"
-
+- name: Attempt to start sys_workflows and verify health
+  block:
     - name: Start sys_workflows Version={{ version }}
       shell: "./start-gcp-sys-workflows.sh --env={{ deploy_lane }}"
       args:
@@ -57,13 +16,13 @@
     - name: Wait for uwsgi to be up and running
       wait_for:
         port: "{{ uwsgi_port }}"
-        host: "{{ ansible_default_ipv4.address }}"
+        host: "{{ hostname_result.stdout }}"
         delay: 5
         timeout: 30
 
     - name: Verify uwsgi service health
       uri:
-        url: "http://{{ ansible_default_ipv4.address }}:{{ uwsgi_port }}/health"
+        url: "http://{{ hostname_result.stdout }}:{{ uwsgi_port }}/health"
         return_content: yes
       register: health_check
       until: health_check.status == 200 and '"status":"ok"' in health_check.content
@@ -71,31 +30,14 @@
       delay: 10
       ignore_errors: yes
 
-    - name: Restart uwsgi service if health check fails
-      block:
-        - name: Restart uwsgi service
-          systemd:
-            name: uwsgi
-            state: restarted
-          when: health_check.status != 200 or '"status":"ok"' not in health_check.content
-
-        - name: Verify uwsgi service health after restart
-          uri:
-            url: "http://{{ ansible_default_ipv4.address }}:{{ uwsgi_port }}/health"
-            return_content: yes
-          register: health_check_post_restart
-          until: health_check_post_restart.status == 200 and '"status":"ok"' in health_check_post_restart.content
-          retries: 5
-          delay: 10
-          ignore_errors: yes
-
-      when: health_check.status != 200 or '"status":"ok"' not in health_check.content
-
-  rescue:
-    - name: Log health check failure
+    - name: Debug health check
       debug:
-        var: health_check
+        msg:
+          - "Health check status: {{ health_check.status }}"
+          - "Health check content: {{ health_check.content }}"
 
-    - name: Fail if uwsgi health check fails
-      fail:
-        msg: "uwsgi health check failed: {{ health_check }}"
+  register: block_results
+  until: block_results.results[-1].status == 200 and '"status":"ok"' in block_results.results[-1].content
+  retries: 2
+  delay: 30
+  ignore_errors: no
