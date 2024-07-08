@@ -5,143 +5,67 @@
     - main.yml
 
   tasks:
-    - name: Check if gcp_sys_workflows.ini exists
-      stat:
-        path: "/gcp/dev2/config/gcp_sys_workflows.ini"  # Adjust the path as needed
-      register: uwsgi_ini
-
-    - name: Debug file existence
-      debug:
-        msg: "gcp_sys_workflows.ini exists: {{ uwsgi_ini.stat.exists }}"
-
-    - name: Display contents of gcp_sys_workflows.ini
-      command: cat /gcp/dev2/config/gcp_sys_workflows.ini
-      when: uwsgi_ini.stat.exists
-      register: ini_contents
-
-    - name: Debug contents of gcp_sys_workflows.ini
-      debug:
-        var: ini_contents.stdout
-
-    - name: Extract https port from gcp_sys_workflows.ini if it exists
-      shell: >
-        awk -F'[=,]' '!/^#/ && /https/ {for (i=1; i<=NF; i++) if ($i ~ /^[0-9]{4}/) {print substr($i, 1, 4); exit}}' /gcp/dev2/config/gcp_sys_workflows.ini
-      when: uwsgi_ini.stat.exists
-      register: uwsgi_port_https
-
-    - name: Debug extracted https port
-      debug:
-        var: uwsgi_port_https.stdout
-
-    - name: Check if nginx.conf exists
-      stat:
-        path: "/gcp/{{ deploy_lane }}/conf/nginx.conf"
-      when: not uwsgi_port_https.stdout
-      register: nginx_conf
-
-    - name: Debug nginx.conf existence
-      debug:
-        msg: "nginx.conf exists: {{ nginx_conf.stat.exists }}"
-
-    - name: Display contents of nginx.conf
-      command: cat /gcp/{{ deploy_lane }}/conf/nginx.conf
-      when: nginx_conf.stat.exists | default(false)
-      register: nginx_contents
-
-    - name: Debug contents of nginx.conf
-      debug:
-        var: nginx_contents.stdout
-
-    - name: Extract port from nginx.conf if it exists
-      command: awk '/listen/ {print $2}' /gcp/{{ deploy_lane }}/conf/nginx.conf | tr -d ';'
-      when: nginx_conf.stat.exists | default(false)
-      register: nginx_port
-
-    - name: Debug extracted nginx port
-      debug:
-        var: nginx_port.stdout
-
-    - name: Set uwsgi port fact from gcp_sys_workflows.ini (https)
+    - name: Initialize check variables
       set_fact:
-        uwsgi_port: "{{ uwsgi_port_https.stdout }}"
-      when: uwsgi_ini.stat.exists and uwsgi_port_https.stdout
+        health_check_retries: 5
+        health_check_delay: 10
 
-    - name: Set uwsgi port fact from nginx.conf
-      set_fact:
-        uwsgi_port: "{{ nginx_port.stdout }}"
-      when: not uwsgi_port_https.stdout and nginx_conf.stat.exists | default(false)
+    - name: Start sys_workflows Version={{ version }}
+      shell: "./start-gcp-sys-workflows.sh --env={{ deploy_lane }}"
+      args:
+        chdir: "{{ app_bin }}"
+      register: results
+      until: results.rc == 0
+      retries: 3
+      delay: 15
 
-    - name: Set uwsgi port fact from default if no config found
-      set_fact:
-        uwsgi_port: "{{ default_uwsgi_port }}"
-      when: not uwsgi_port_https.stdout and not nginx_conf.stat.exists | default(false)
-
-    - name: Debug port selection
+    - name: Debug final health check url
       debug:
-        msg: "Selected uwsgi port is {{ uwsgi_port }}"
+        msg:
+          - "Final health check url - https://{{ ansible_default_ipv4.address }}:{{ port }}"
 
-    - name: Debug final URL for health check
-      debug:
-        msg: "Final health check URL is https://{{ hostname_result.stdout }}:{{ uwsgi_port }}/health"
+    - name: Verify uwsgi service health
+      block:
+        - name: Perform initial health check
+          uri:
+            url: "https://{{ ansible_default_ipv4.address }}:{{ port }}/health"
+            return_content: yes
+          register: health_check
+          retries: "{{ health_check_retries }}"
+          delay: "{{ health_check_delay }}"
+          ignore_errors: yes
 
-    - block:
-        - name: Start sys_workflows Version={{ version }}
+        - name: Debug initial health check
+          debug:
+            msg:
+              - "Health check status: {{ health_check.status }}"
+              - "Health check content: {{ health_check.content }}"
+
+        - name: Restart sys_workflows using script if health check fails
           shell: "./start-gcp-sys-workflows.sh --env={{ deploy_lane }}"
           args:
             chdir: "{{ app_bin }}"
-          register: results
-          until: results.rc == 0
-          retries: 3
-          delay: 15
+          register: restart_results
+          when: health_check.status != 200
 
-        - name: Wait for uwsgi to be up and running
-          wait_for:
-            port: "{{ uwsgi_port }}"
-            host: "{{ ansible_default_ipv4.address }}"
-            delay: 5
-            timeout: 30
-
-        - name: Verify uwsgi service health
+        - name: Perform health check after restart
           uri:
-            url: "https://{{ hostname_result.stdout }}:{{ uwsgi_port }}/health"
+            url: "https://{{ ansible_default_ipv4.address }}:{{ port }}/health"
             return_content: yes
           register: health_check
-          until: health_check.status == 200
-          retries: 5
-          delay: 10
+          retries: "{{ health_check_retries }}"
+          delay: "{{ health_check_delay }}"
+          when: health_check.status != 200
           ignore_errors: yes
 
-        - name: Loop for retrying restart and health check
-          block:
-            - name: Restart uwsgi service
-              systemd:
-                name: uwsgi
-                state: restarted
+        - name: Debug health check after restart
+          debug:
+            msg:
+              - "Health check status after restart: {{ health_check.status }}"
+              - "Health check content after restart: {{ health_check.content }}"
+      when: health_check.status != 200
 
-            - name: Wait for uwsgi to be up and running after restart
-              wait_for:
-                port: "{{ uwsgi_port }}"
-                host: "{{ ansible_default_ipv4.address }}"
-                delay: 5
-                timeout: 30
-
-            - name: Verify uwsgi service health after restart
-              uri:
-                url: "https://{{ hostname_result.stdout }}:{{ uwsgi_port }}/health"
-                return_content: yes
-              register: health_check_post_restart
-              until: health_check_post_restart.status == 200
-              retries: 5
-              delay: 10
-              ignore_errors: yes
-          retries: 2
-          delay: 10
-
-  rescue:
-    - name: Log health check failure
-      debug:
-        var: health_check_post_restart
-
-    - name: Fail if uwsgi health check fails after retries
+    - name: Fail if final health check fails
       fail:
-        msg: "uwsgi health check failed after retries: {{ health_check_post_restart }}"
+        msg: "uwsgi health check failed after retries: {{ health_check.content }}"
+      when: health_check.status != 200
