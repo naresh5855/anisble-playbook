@@ -1,80 +1,3 @@
-#!/bin/bash
-
-set -x
-log() {
-  echo "$1" | tee -a $STARTLOG
-}
-
-# Process args
-while getopts ":e:" opt; do
-  case ${opt} in
-    e )
-      export ENV=$OPTARG
-      ;;
-    \? )
-      echo "Usage: $0 [-e ENVIRONMENT]"
-      exit 1
-      ;;
-  esac
-done
-
-shift $((OPTIND -1))
-
-# Set the Environment if not passed
-[[ ! $ENV ]] && {
-  ENV="$(cd "$(dirname "$0")" && pwd | awk -F '/' '{print $6}')"
-}
-
-export ENV
-DB_ENV=$ENV
-export DB_ENV
-GCP_PID="/gcp/${ENV}/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-${ENV}.pid"
-GCP_SOCK="/gcp/${ENV}/apps/gcp_sys_workflows/latest/logs/GCP_SYS_WORKFLOWS-${ENV}.sock"
-CONFIG_FILE="/gcp/${ENV}/config/gcp_sys_workflows.ini"
-NGINX_CONF="/gcp/${ENV}/conf/nginx.conf"
-DT=$(date +%Y-%m-%d)
-GCP_LOG="/gcp/${ENV}/apps/gcp_sys_workflows/latest/logs/start-gcp-sys-workflows-${ENV}^${DT}_${TIMESTAMP}.log"
-SOURCE /gcp/${ENV}/apps/gcp_sys_workflows/venv/activate
-BASE="$(cd "$(dirname "$0")" && pwd | awk -F '/' '{print $2}')"
-export LD_LIBRARY_PATH=${BASE}/lib
-export ORACLE_HOME=/efs/dist/oracle/db/client/19.0.0.0/exec/x86-64.linux.2.6
-export PATH=$ORACLE_HOME/bin:$PATH
-export REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
-
-log "GCP SYS WORKFLOWS - Startup"
-log "ENV: $ENV"
-log "GCP VERSION: `pip list | egrep 'gcp_sys_workflows' | awk '{ print $2 }'`"
-log "TIMESTAMP: $TIMESTAMP"
-log "CONFIG FILE: $CONFIG_FILE"
-log "STARTUP LOG: $STARTLOG"
-log "GCP LOG: $GCP_LOG"
-
-# Check for gcp_sys_workflows.ini
-if [[ -f "$CONFIG_FILE" ]]; then
-  PORT=$(awk -F'[=:]' '!/^#/ && /https/ {print $3}' "$CONFIG_FILE" | tr -d ' ,' | cut -c 1-4)
-fi
-
-# Check for nginx.conf if port is not found in gcp_sys_workflows.ini
-if [[ -z "$PORT" ]]; then
-  if [[ -f "$NGINX_CONF" ]]; then
-    PORT=$(awk '!/^#/ && /listen/ {print $2}' "$NGINX_CONF" | tr -d ';')
-  fi
-fi
-
-# If no port is found, log and exit
-if [[ -z "$PORT" ]]; then
-  log "No port found in configuration files."
-  echo "No port found in configuration files." | tee -a
-  exit 1
-else
-  log "Port found: $PORT"
-fi
-
-# Health check function
-health_check() {
-  curl -s -o /dev/null -w "%{http_code}" "https://${HOSTNAME}:${PORT}/health"
-}
-
 # Stop script
 stop_service() {
   if [[ -f ${GCP_PID} ]]; then
@@ -84,44 +7,18 @@ stop_service() {
       log "GCP ${ENV} process stopped"
     fi
   fi
-  # Just in case. Sometimes no PID or SOCK file but process is still running
-  if kill $GCP_MASTER_PID > /dev/null 2>&1; then
+
+  # Kill master PID if it exists
+  GCP_MASTER_PID=$(ps -ef | grep -i jms-${ENV}UWSGI | grep $ENV | grep 'master' | awk '{print $2}')
+  if [[ ! -z "$GCP_MASTER_PID" ]]; then
+    kill -9 $GCP_MASTER_PID
     log "Killed gcp_sys_workflows Master PID [ $GCP_MASTER_PID ]!"
   fi
+
+  # Kill any stale worker or emperor processes
+  GCP_STALE_PID=$(ps -ef | grep -i jms-${ENV}UWSGI | grep $ENV | grep -E 'worker|emperor' | awk '$3 == 1 {print $2}')
+  if [[ ! -z "$GCP_STALE_PID" ]]; then
+    kill -9 $GCP_STALE_PID
+    log "Killed stale gcp_sys_workflows worker/emperor PID [ $GCP_STALE_PID ]!"
+  fi
 }
-
-# Retry loop
-for i in {1..5}; do
-  log "Performing health check (attempt $i)..."
-  HEALTH_STATUS=$(health_check)
-
-  if [ "$HEALTH_STATUS" -eq 200 ]; then
-    log "Health check passed."
-    break
-  else
-    log "Health check failed with status $HEALTH_STATUS. Stopping and restarting service..."
-    stop_service
-    uwsgi --virtualenv=/gcp/${ENV}/apps/gcp_sys_workflows/latest/venv --ini /gcp/${ENV}/config/gcp_sys_workflows.ini --need-app 2>&1 >> $STARTLOG &
-    sleep 10
-  fi
-done
-
-# Look for PID file
-if [[ -f ${GCP_PID} ]]; then
-  log "-------------------------------------------------"
-  log "GCP Process Started"
-  log "-------------------------------------------------"
-  log "GCP PID File: `ls ${GCP_PID}`"
-  log "GCP SOCK File: `ls ${GCP_SOCK}`"
-  ps -ef | grep -i jms-${ENV}UWSGI | grep $ENV | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start
-  log "-------------------------------------------------"
-  if [[ -f ${GCP_LOG} ]]; then
-    sed -n '/Operational,/,$p' ${GCP_LOG} | egrep -v worker
-    chmod 755 ${GCP_LOG}
-  fi
-  log "STARTED GCP"
-  log "`ps -ef | grep -i uwsgi | grep $ENV | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start`"
-else
-  log "COULD NOT FIND GCP_PID [${GCP_PID}]. GCP may not have started!!!"
-  exit 1
-fi
