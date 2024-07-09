@@ -6,19 +6,19 @@ log() {
 }
 
 # Process args
-shortopts="e:"
-longopts="env:"
-arguments=$(getopt -a --longoptions=longopts --options=+shortopts -- "$@") || { echo "$0: ERROR - Invalid argument."; exit 1; }
-eval set -- "$arguments"
-while true
-do
-  case $1 in
-    -e|--environment|--env) export ENV="$2"; shift;;
-    -h|-\?|--help) showUsage; exit 1;;
-    (--) shift; break;;
+while getopts ":e:" opt; do
+  case ${opt} in
+    e )
+      export ENV=$OPTARG
+      ;;
+    \? )
+      echo "Usage: $0 [-e ENVIRONMENT]"
+      exit 1
+      ;;
   esac
-  shift
 done
+
+shift $((OPTIND -1))
 
 # Set the Environment if not passed
 [[ ! $ENV ]] && {
@@ -58,13 +58,17 @@ fi
 if [[ -z "$PORT" ]]; then
   if [[ -f "$NGINX_CONF" ]]; then
     PORT=$(awk '!/^#/ && /listen/ {print $2}' "$NGINX_CONF" | tr -d ';')
-  else
-    log "No port found in configuration files."
-    exit 1
   fi
 fi
 
-log "Port found: $PORT"
+# If no port is found, log and exit
+if [[ -z "$PORT" ]]; then
+  log "No port found in configuration files."
+  echo "No port found in configuration files." | tee -a
+  exit 1
+else
+  log "Port found: $PORT"
+fi
 
 # Health check function
 health_check() {
