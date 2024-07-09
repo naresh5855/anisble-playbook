@@ -1,71 +1,123 @@
-- name: Deploy and Check GCP Service
-  hosts: my_hosts
-  gather_facts: yes
-  vars_files:
-    - main.yml
+#!/bin/bash
 
-  tasks:
-    - name: Initialize check variables
-      set_fact:
-        health_check_retries: 5
-        health_check_delay: 10
+set -x
+log() {
+  echo "$1" | tee -a $STARTLOG
+}
 
-    - name: Start sys_workflows Version={{ version }}
-      shell: "./start-gcp-sys-workflows.sh --env={{ deploy_lane }}"
-      args:
-        chdir: "{{ app_bin }}"
-      register: results
-      until: results.rc == 0
-      retries: 3
-      delay: 15
+# Process args
+shortopts="e:"
+longopts="env:"
+arguments=$(getopt -a --longoptions=longopts --options=+shortopts -- "$@") || { echo "$0: ERROR - Invalid argument."; exit 1; }
+eval set -- "$arguments"
+while true
+do
+  case $1 in
+    -e|--environment|--env) export ENV="$2"; shift;;
+    -h|-\?|--help) showUsage; exit 1;;
+    (--) shift; break;;
+  esac
+  shift
+done
 
-    - name: Debug final health check url
-      debug:
-        msg:
-          - "Final health check url - https://{{ ansible_default_ipv4.address }}:{{ port }}"
+# Set the Environment if not passed
+[[ ! $ENV ]] && {
+  ENV="$(cd "$(dirname "$0")" && pwd | awk -F '/' '{print $6}')"
+}
 
-    - name: Verify uwsgi service health
-      block:
-        - name: Perform initial health check
-          uri:
-            url: "https://{{ ansible_default_ipv4.address }}:{{ port }}/health"
-            return_content: yes
-          register: health_check
-          retries: "{{ health_check_retries }}"
-          delay: "{{ health_check_delay }}"
-          ignore_errors: yes
+export ENV
+DB_ENV=$ENV
+export DB_ENV
+GCP_PID="/gcp/${ENV}/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-${ENV}.pid"
+GCP_SOCK="/gcp/${ENV}/apps/gcp_sys_workflows/latest/logs/GCP_SYS_WORKFLOWS-${ENV}.sock"
+CONFIG_FILE="/gcp/${ENV}/config/gcp_sys_workflows.ini"
+NGINX_CONF="/gcp/${ENV}/conf/nginx.conf"
+DT=$(date +%Y-%m-%d)
+GCP_LOG="/gcp/${ENV}/apps/gcp_sys_workflows/latest/logs/start-gcp-sys-workflows-${ENV}^${DT}_${TIMESTAMP}.log"
+SOURCE /gcp/${ENV}/apps/gcp_sys_workflows/venv/activate
+BASE="$(cd "$(dirname "$0")" && pwd | awk -F '/' '{print $2}')"
+export LD_LIBRARY_PATH=${BASE}/lib
+export ORACLE_HOME=/efs/dist/oracle/db/client/19.0.0.0/exec/x86-64.linux.2.6
+export PATH=$ORACLE_HOME/bin:$PATH
+export REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
 
-        - name: Debug initial health check
-          debug:
-            msg:
-              - "Health check status: {{ health_check.status }}"
-              - "Health check content: {{ health_check.content }}"
+log "GCP SYS WORKFLOWS - Startup"
+log "ENV: $ENV"
+log "GCP VERSION: `pip list | egrep 'gcp_sys_workflows' | awk '{ print $2 }'`"
+log "TIMESTAMP: $TIMESTAMP"
+log "CONFIG FILE: $CONFIG_FILE"
+log "STARTUP LOG: $STARTLOG"
+log "GCP LOG: $GCP_LOG"
 
-        - name: Restart sys_workflows using script if health check fails
-          shell: "./start-gcp-sys-workflows.sh --env={{ deploy_lane }}"
-          args:
-            chdir: "{{ app_bin }}"
-          register: restart_results
-          when: health_check.status != 200
+# Check for gcp_sys_workflows.ini
+if [[ -f "$CONFIG_FILE" ]]; then
+  PORT=$(awk -F'[=:]' '!/^#/ && /https/ {print $3}' "$CONFIG_FILE" | tr -d ' ,' | cut -c 1-4)
+fi
 
-        - name: Perform health check after restart
-          uri:
-            url: "https://{{ ansible_default_ipv4.address }}:{{ port }}/health"
-            return_content: yes
-          register: health_check
-          retries: "{{ health_check_retries }}"
-          delay: "{{ health_check_delay }}"
-          when: health_check.status != 200
-          ignore_errors: yes
+# Check for nginx.conf if port is not found in gcp_sys_workflows.ini
+if [[ -z "$PORT" ]]; then
+  if [[ -f "$NGINX_CONF" ]]; then
+    PORT=$(awk '!/^#/ && /listen/ {print $2}' "$NGINX_CONF" | tr -d ';')
+  else
+    log "No port found in configuration files."
+    exit 1
+  fi
+fi
 
-        - name: Debug health check after restart
-          debug:
-            msg:
-              - "Health check status after restart: {{ health_check.status }}"
-              - "Health check content after restart: {{ health_check.content }}"
-      when: health_check.status != 200
+log "Port found: $PORT"
 
-    - name: Fail if final health check fails
-      fail:
-        msg: "uwsgi health check failed after retries: {{ health_check.content }}"
-      when: health_check.status != 200
+# Health check function
+health_check() {
+  curl -s -o /dev/null -w "%{http_code}" "https://${HOSTNAME}:${PORT}/health"
+}
+
+# Stop script
+stop_service() {
+  if [[ -f ${GCP_PID} ]]; then
+    /efs/dist/python/uWSGI/2.0.19.1/exec/3.7/bin/uwsgi --stop ${GCP_PID}
+    sleep 90
+    if [[ ! -f ${GCP_PID} && ! -f ${GCP_SOCK} ]]; then
+      log "GCP ${ENV} process stopped"
+    fi
+  fi
+  # Just in case. Sometimes no PID or SOCK file but process is still running
+  if kill $GCP_MASTER_PID > /dev/null 2>&1; then
+    log "Killed gcp_sys_workflows Master PID [ $GCP_MASTER_PID ]!"
+  fi
+}
+
+# Retry loop
+for i in {1..5}; do
+  log "Performing health check (attempt $i)..."
+  HEALTH_STATUS=$(health_check)
+
+  if [ "$HEALTH_STATUS" -eq 200 ]; then
+    log "Health check passed."
+    break
+  else
+    log "Health check failed with status $HEALTH_STATUS. Stopping and restarting service..."
+    stop_service
+    uwsgi --virtualenv=/gcp/${ENV}/apps/gcp_sys_workflows/latest/venv --ini /gcp/${ENV}/config/gcp_sys_workflows.ini --need-app 2>&1 >> $STARTLOG &
+    sleep 10
+  fi
+done
+
+# Look for PID file
+if [[ -f ${GCP_PID} ]]; then
+  log "-------------------------------------------------"
+  log "GCP Process Started"
+  log "-------------------------------------------------"
+  log "GCP PID File: `ls ${GCP_PID}`"
+  log "GCP SOCK File: `ls ${GCP_SOCK}`"
+  ps -ef | grep -i jms-${ENV}UWSGI | grep $ENV | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start
+  log "-------------------------------------------------"
+  if [[ -f ${GCP_LOG} ]]; then
+    sed -n '/Operational,/,$p' ${GCP_LOG} | egrep -v worker
+    chmod 755 ${GCP_LOG}
+  fi
+  log "STARTED GCP"
+  log "`ps -ef | grep -i uwsgi | grep $ENV | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start`"
+else
+  log "COULD NOT FIND GCP_PID [${GCP_PID}]. GCP may not have started!!!"
+  exit 1
+fi
