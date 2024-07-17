@@ -51,6 +51,13 @@ if [[ -f $LOCK_FILE ]]; then
   exit 0
 fi
 
+# Check for existing master PID
+EXISTING_MASTER_PID=$(ps -ef | grep -i jms-${ENV}|grep uwsgi | egrep 'master|Emperor' | grep -v grep | awk '{print $2}')
+if [[ ! -z "$EXISTING_MASTER_PID" ]]; then
+  log "Master PID already exists: $EXISTING_MASTER_PID. Exiting to avoid duplicate process."
+  exit 0
+fi
+
 # Create lock file to signal startup in progress
 touch $LOCK_FILE
 
