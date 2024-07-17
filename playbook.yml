@@ -1,113 +1,71 @@
-#!/bin/bash
+---
+- name: Stop GCP Block
+  block:
+    - name: Create deployment lock file
+      file:
+        path: "/path/to/deployment.lock"
+        state: touch
 
-# GCP-SYS-WORKFLOWS Service Startup Script
-# Naresh - zkpb117
+    - name: Stop sys_workflows Version={{ version }}
+      shell:
+        cmd: "./stop-gcp-sys-workflows.sh -e {{ deploy_lane }}"
+        chdir: "{{ app_bin }}"
+      register: results
+      until: results.rc == 0
+      retries: 3
+      delay: 15
 
-set -x
+- name: Remove the symlink
+  file:
+    path: "{{ deployment_base }}/latest"
+    state: absent
 
-log() {
-  echo -e "$1" | tee -a $STARTLOG
-}
+- name: Checking symlink
+  file:
+    src: "{{ deployment_root }}/{{ version }}"
+    dest: "{{ deployment_base }}/latest"
+    mode: '0750'
+    state: link
 
-log_red() {
-  echo -e "\033[31m$1\033[0m" | tee -a $STARTLOG
-}
+- name: Update the permissions of venv directory installed from wheel
+  shell:
+    cmd: "chmod -R 755 venv"
+    chdir: "{{ deployment_root }}"
 
-# process args
-shortopts="e:"
-longopts="environment:,env:,help"
-arguments=$(getopt -a --longoptions=$longopts --options=$shortopts -- "$@") || { echo -e "$0: ERROR - Invalid arguments."; exit 1; }
-eval set -- "$arguments"
-while true
-do
-  case $1 in
-    -e|--environment|--env) export ENV="$2"; shift ;;
-    -h|--help) showUsage; exit 1 ;;
-    (--) shift; break ;;
-  esac
-  shift
-done
+- name: DB Loader Script
+  block:
+    - name: DB Loader
+      shell:
+        cmd: "source venv/bin/activate; python -m gcp_sys_workflows.db_loader -e {{ deploy_lane }} -v {{ version }}"
+        chdir: "{{ deployment_root }}"
+      register: loader_results
+      any_errors_fatal: true
 
-# Set the Environment if not passed
-[[ ! $ENV ]] && {
-  ENV="$(cd "$(dirname "$0")" && pwd | awk -F/ '{print $6}')"
-}
+    - name: DB Loader output
+      debug:
+        var: loader_results
+      when: uasl_hosts|selectattr("name", "equalto", inventory_hostname)|list|length > 0
 
-export ENV
-DB_ENV=$ENV
-export DB_ENV
-GCP_PID_FILE=/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-${ENV}.pid
-GCP_SOCK_FILE=/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-${ENV}.sock
-GCP_MASTER_PID=$(ps -ef | grep -i jms-${ENV}|grep uwsgi | grep -v grep | awk '{print $2}')
-DT=$(date +'%Y-%m-%d')
-TIMESTAMP=$(date +'%H_%M_%S')
-GCP_LOG=/apps/gcp_sys_workflows/latest/logs/start-gcp-sys-workflows.${ENV}^${DT}_${TIMESTAMP}.log
-STARTLOG=/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-startup.log
-LOCK_FILE=/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-startup.lock
-source /gcp/wsgi/venv/bin/activate
-export ORACLE_HOME=/efs/dist/oracle/db/client/19.0.0.0.0_1.0/exec/x86_64-linux.2.6
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ORACLE_HOME}/lib
-export REQUESTS_CA_BUNDLE=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+- name: Startup GCP Block
+  block:
+    - name: Start sys_workflows Version={{ version }}
+      shell:
+        cmd: "./start-gcp-sys-workflows.sh -e {{ deploy_lane }}"
+        chdir: "{{ app_bin }}"
+      register: results
+      until: results.rc == 0
+      retries: 3
+      delay: 15
 
-# Exit if lock file exists
-if [[ -f $LOCK_FILE ]]; then
-  log_red "Another process is currently starting up. Exiting to avoid conflict."
-  exit 0
-fi
+    - name: Wait for master PID to be available
+      wait_for:
+        path: "/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-{{ deploy_lane }}.pid"
+        state: present
+        timeout: 300
 
-# Check for existing master PID
-EXISTING_MASTER_PID=$(ps -ef | grep -i jms-${ENV}|grep uwsgi | egrep 'master|Emperor' | grep -v grep | awk '{print $2}')
-if [[ ! -z "$EXISTING_MASTER_PID" ]]; then
-  log_red "Master PID already exists: $EXISTING_MASTER_PID. Exiting to avoid duplicate process."
-  exit 0
-fi
-
-# Create lock file to signal startup in progress
-touch $LOCK_FILE
-
-log "GCP SYS WORKFLOWS - Startup"
-
-log "ENV: $ENV"
-log "GCP VERSION: `pip list | egrep 'gcp_sys_workflows' | awk '{ print $2 }'`"
-log "TIMESTAMP: $TIMESTAMP"
-log "CONFIG FILE: :CONFIG_FILE:"
-log "STARTUP LOG: $STARTLOG"
-log "GCP LOG: $GCP_LOG"
-
-uwsgi --virtualenv=/gcp/${ENV}/apps/gcp_sys_workflows/latest/venv --ini /gcp/${ENV}/config/gcp_sys_workflows.ini --need-app 2>&1 >> $STARTLOG &
-sleep 10
-STATUS=$?
-
-# Look for PID file
-if [[ -f $GCP_PID_FILE ]]; then
-  log "--------------------------------------------------"
-  log "GCP Process Started"
-  log "--------------------------------------------------"
-  log "GCP PID File: `ls $GCP_PID_FILE`"
-  log "GCP SOCK File: `ls $GCP_SOCK_FILE`"
-
-  # Check for master and emperor PIDs
-  for i in {1..10}; do
-    MASTER_PID=$(ps -ef | grep -i jms-${ENV}|grep uwsgi | grep $ENV | egrep 'master|Emperor' | egrep -v worker | egrep -v start | awk '{print $2}')
-    if [[ ! -z "$MASTER_PID" ]]; then
-      log "STARTED GCP"
-      sed -n '/Operational/,/*/p' $GCP_LOG | egrep -v worker
-      chmod 755 $GCP_LOG
-      # Remove lock file
-      rm -f $LOCK_FILE
-      exit 0
-    else
-      sleep 5
-    fi
-  done
-
-  log_red "Could not find the required master or emperor PID"
-  rm -f $LOCK_FILE
-  exit 1
-else
-  log_red "--------------------------------------------------"
-  log_red "COULD NOT FIND GCP PID [ $GCP_PID ]. GCP may not have started!!!"
-  log_red "--------------------------------------------------"
-  rm -f $LOCK_FILE
-  exit 1
-fi
+- name: Cleanup lock file
+  always:
+    - name: Remove deployment lock file
+      file:
+        path: "/path/to/deployment.lock"
+        state: absent
