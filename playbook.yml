@@ -19,12 +19,6 @@ startup_lock="/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-startup.lock
 
 log_info="$directory/wf-restart-$(date +%Y-%m-%d_%H:%M:%S).log"
 
-send_mail() {
-  local subject="$1"
-  local body="$2"
-  echo -e "$body" | mail -s "$subject" -r "{{ service_id }}@bofa.com" $recipients
-}
-
 if [ "$ice_bool" = "NO" ]; then
   # Set Environment lanes
   for env in {{ gra_env_lanes }}; do
@@ -60,38 +54,12 @@ if [ "$ice_bool" = "NO" ]; then
         mkdir -p "$directory"
       fi
 
-      # Add log details to email
+      # Email is sent with last "n" number of log lines
+      log_info="$directory/wf-restart-$(date +%Y-%m-%d_%H:%M:%S).log"
+      touch $log_info
       echo -e "Workflows might be down, AutoSys is attempting a restart\n" >> $log_info
       tail -n $log_lines /gcp/$env/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-$(date +%Y-%m-%d).log >> $log_info
-      email_subject="GCP EM STATUS REPORT -- WF RESTART FOR $env ON $boxname"
-      email_body="Dear Team,
-
-We've identified and resolved an issue affecting the uWSGI service startup due to conflicts with Autosys job restarts.
-
-Root Cause:
-The uWSGI boot-up process takes longer because it loads database configurations, retrieves secrets from HashiCorp Vault (HVault), and authenticates with OAuth. During this time, the uWSGI Emperor is responsible for launching the master and worker processes.
-
-While the application was loading, the Autosys job attempted to restart the service, causing duplicate PIDs to bind to the same port and removing the socket file. This led to the service becoming unresponsive despite active PIDs.
-
-Resolution:
-1. Deployment and Startup Lock Files:
-   - Introduced lock files to prevent duplicate startups during deployment and restarts.
-
-2. Enhanced Watchdog Script:
-   - Modified the script to check for lock files before restarting.
-   - Added a wait mechanism in the startup script to handle delays.
-
-These changes ensure a stable uWSGI startup process and prevent conflicts.
-
-Feel free to reach out with any questions.
-
-Best Regards,
-[Your Position]
-
-Log details:
-$(cat $log_info)"
-
-      send_mail "$email_subject" "$email_body"
+      mail -s "GCP EM STATUS REPORT -- WF RESTART FOR $env ON $boxname" -r "{{ service_id }}@bofa.com" $recipients < $log_info
       rm $log_info
     fi
 
