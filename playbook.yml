@@ -1,14 +1,45 @@
-- name: Set email ID for UI reg and schema Evo based on branch name and Jenkins notification_email
-  set_fact:
-    ui_reg_email: "{{ notification_email if notification_email is defined and notification_email | length > 0 else 'dg.gcp_em_team@bofa.com' }}"
-  when: branch_name is match("feature.*") or branch_name is match("bugfix.*")
+# Set Vars
+recipients="dg.gcp_em_team@bofa.com"
+directory="/gcp/autosys/autosys_out"
+log_lines="{{ log_count }}"
+sleep_secs="{{ sleep_secs }}"
+export smtp="{{ smtp_name }}"
+export smtpport=25
+boxname=$(hostname)
+ice_bool="{{ ice_bool }}"
 
-- name: Set email ID for UI reg and schema Evo for develop and release branches or if notification_email is not provided
-  set_fact:
-    ui_reg_email: "{{ 'dg.gcp_em_team@bofa.com' if notification_email is not defined or notification_email | length == 0 else notification_email }}"
-  when: branch_name == "develop" or branch_name is match("release.*")
+deployment_lock="/path/to/deployment.lock"
+startup_lock="/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-startup.lock"
 
-- name: Debug ui_reg_email
-  debug:
-    msg: "UI Reg Email: {{ ui_reg_email }}"
-  when: uas1_hosts|selectattr("name", "equalto", inventory_hostname)|list|length > 0
+if [ "$ice_bool" = "No" ]; then
+  # Set Environment Lanes
+  for env in {{ gra_env_lanes }}; do
+
+    # Check to see if lanes are down
+    send_mail="false"
+    check_gcp_workflows1=$(ps -ef | grep -i uwsgi | grep $env | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start | wc -l)
+    if [ $check_gcp_workflows1 -lt 2 ]; then
+
+      # Check to see if lane is down for at least 60 seconds
+      sleep $sleep_secs
+      check_gcp_workflows2=$(ps -ef | grep -i uwsgi | grep $env | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start | wc -l)
+
+      # If lane is still down then start script
+      if [ $check_gcp_workflows2 -lt 2 ]; then
+        if [[ ! -f $deployment_lock && ! -f $startup_lock ]]; then
+          cd /gcp/bin
+          ./start-gcp-sys-workflows.sh -e $env
+          send_mail="true"
+        else
+          echo "Deployment or startup is in progress. Exiting to avoid conflict."
+        fi
+      fi
+    fi
+
+    if [ "$send_mail" = "true" ]; then
+      echo "Sending notification email to $recipients"
+      # Add your mail sending logic here
+    fi
+
+  done
+fi
