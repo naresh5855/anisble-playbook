@@ -1,71 +1,14 @@
----
-- name: Stop GCP Block
-  block:
-    - name: Create deployment lock file
-      file:
-        path: "/path/to/deployment.lock"
-        state: touch
+- name: Set email ID for UI reg and schema Evo based on branch name and Jenkins notification_email
+  set_fact:
+    ui_reg_email: "{{ notification_email if notification_email is defined and notification_email | length > 0 else 'dg.gcp_em_team@bofa.com' }}"
+  when: branch_name is match("feature.*") or branch_name is match("bugfix.*")
 
-    - name: Stop sys_workflows Version={{ version }}
-      shell:
-        cmd: "./stop-gcp-sys-workflows.sh -e {{ deploy_lane }}"
-        chdir: "{{ app_bin }}"
-      register: results
-      until: results.rc == 0
-      retries: 3
-      delay: 15
+- name: Set email ID for UI reg and schema Evo for develop and release branches or if notification_email is not provided
+  set_fact:
+    ui_reg_email: "{{ 'dg.gcp_em_team@bofa.com' if notification_email is not defined or notification_email | length == 0 else notification_email }}"
+  when: branch_name == "develop" or branch_name is match("release.*")
 
-- name: Remove the symlink
-  file:
-    path: "{{ deployment_base }}/latest"
-    state: absent
-
-- name: Checking symlink
-  file:
-    src: "{{ deployment_root }}/{{ version }}"
-    dest: "{{ deployment_base }}/latest"
-    mode: '0750'
-    state: link
-
-- name: Update the permissions of venv directory installed from wheel
-  shell:
-    cmd: "chmod -R 755 venv"
-    chdir: "{{ deployment_root }}"
-
-- name: DB Loader Script
-  block:
-    - name: DB Loader
-      shell:
-        cmd: "source venv/bin/activate; python -m gcp_sys_workflows.db_loader -e {{ deploy_lane }} -v {{ version }}"
-        chdir: "{{ deployment_root }}"
-      register: loader_results
-      any_errors_fatal: true
-
-    - name: DB Loader output
-      debug:
-        var: loader_results
-      when: uasl_hosts|selectattr("name", "equalto", inventory_hostname)|list|length > 0
-
-- name: Startup GCP Block
-  block:
-    - name: Start sys_workflows Version={{ version }}
-      shell:
-        cmd: "./start-gcp-sys-workflows.sh -e {{ deploy_lane }}"
-        chdir: "{{ app_bin }}"
-      register: results
-      until: results.rc == 0
-      retries: 3
-      delay: 15
-
-    - name: Wait for master PID to be available
-      wait_for:
-        path: "/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-{{ deploy_lane }}.pid"
-        state: present
-        timeout: 300
-
-- name: Cleanup lock file
-  always:
-    - name: Remove deployment lock file
-      file:
-        path: "/path/to/deployment.lock"
-        state: absent
+- name: Debug ui_reg_email
+  debug:
+    msg: "UI Reg Email: {{ ui_reg_email }}"
+  when: uas1_hosts|selectattr("name", "equalto", inventory_hostname)|list|length > 0
