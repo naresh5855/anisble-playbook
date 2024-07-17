@@ -1,3 +1,9 @@
+#!/bin/bash
+
+##############################################
+# GCP-SYS-WORKFLOWS Service Monitoring Script
+##############################################
+
 # Set Vars
 recipients="dg.gcp_em_team@bofa.com"
 directory="/gcp/autosys/autosys_out"
@@ -11,70 +17,85 @@ ice_bool="{{ ice_bool }}"
 deployment_lock="/path/to/deployment.lock"
 startup_lock="/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-startup.lock"
 
-if [ "$ice_bool" = "No" ]; then
-  # Set Environment Lanes
-  for env in {{ gra_env_lanes }}; do
+log_info="$directory/wf-restart-$(date +%Y-%m-%d_%H:%M:%S).log"
 
+send_mail() {
+  local subject="$1"
+  local body="$2"
+  echo -e "$body" | mail -s "$subject" -r "{{ service_id }}@bofa.com" $recipients
+}
+
+if [ "$ice_bool" = "NO" ]; then
+  # Set Environment lanes
+  for env in {{ gra_env_lanes }}; do
     # Check to see if lanes are down
     send_mail="false"
     check_gcp_workflows1=$(ps -ef | grep -i uwsgi | grep $env | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start | wc -l)
     if [ $check_gcp_workflows1 -lt 2 ]; then
-
+      # Log current status
+      echo "[$(date)] Detected potential issue with $env: $check_gcp_workflows1 processes found." >> $log_info
       # Check to see if lane is down for at least 60 seconds
       sleep $sleep_secs
       check_gcp_workflows2=$(ps -ef | grep -i uwsgi | grep $env | egrep 'master|Emperor|worker' | egrep -v worker | egrep -v start | wc -l)
-
-      # If lane is still down then start script
       if [ $check_gcp_workflows2 -lt 2 ]; then
+        # Log current status
+        echo "[$(date)] Confirmed issue with $env: $check_gcp_workflows2 processes found after $sleep_secs seconds." >> $log_info
         if [[ ! -f $deployment_lock && ! -f $startup_lock ]]; then
+          # Perform restart
+          echo "[$(date)] No deployment or startup lock found. Restarting $env." >> $log_info
           cd /gcp/bin
-          ./start-gcp-sys-workflows.sh -e $env
+          ./start-gcp-sys-workflows.sh --env=$env
           send_mail="true"
         else
-          echo "Deployment or startup is in progress. Exiting to avoid conflict."
+          echo "[$(date)] Deployment or startup in progress. Exiting to avoid conflict." >> $log_info
         fi
+      else
+        echo "[$(date)] Issue with $env resolved itself: $check_gcp_workflows2 processes found after $sleep_secs seconds." >> $log_info
       fi
     fi
 
     if [ "$send_mail" = "true" ]; then
-      echo "Sending notification email to $recipients"
-      # Add your mail sending logic here
+      # Check if directory exists
+      if [ ! -d "$directory" ]; then
+        mkdir -p "$directory"
+      fi
+
+      # Add log details to email
+      echo -e "Workflows might be down, AutoSys is attempting a restart\n" >> $log_info
+      tail -n $log_lines /gcp/$env/apps/gcp_sys_workflows/latest/logs/gcp_sys_workflows-$(date +%Y-%m-%d).log >> $log_info
+      email_subject="GCP EM STATUS REPORT -- WF RESTART FOR $env ON $boxname"
+      email_body="Dear Team,
+
+We've identified and resolved an issue affecting the uWSGI service startup due to conflicts with Autosys job restarts.
+
+Root Cause:
+The uWSGI boot-up process takes longer because it loads database configurations, retrieves secrets from HashiCorp Vault (HVault), and authenticates with OAuth. During this time, the uWSGI Emperor is responsible for launching the master and worker processes.
+
+While the application was loading, the Autosys job attempted to restart the service, causing duplicate PIDs to bind to the same port and removing the socket file. This led to the service becoming unresponsive despite active PIDs.
+
+Resolution:
+1. Deployment and Startup Lock Files:
+   - Introduced lock files to prevent duplicate startups during deployment and restarts.
+
+2. Enhanced Watchdog Script:
+   - Modified the script to check for lock files before restarting.
+   - Added a wait mechanism in the startup script to handle delays.
+
+These changes ensure a stable uWSGI startup process and prevent conflicts.
+
+Feel free to reach out with any questions.
+
+Best Regards,
+[Your Position]
+
+Log details:
+$(cat $log_info)"
+
+      send_mail "$email_subject" "$email_body"
+      rm $log_info
     fi
 
   done
+else
+  echo "JOB ON ICE"
 fi
-
-
-Subject: Resolution of uWSGI Boot-up and Autosys Job Conflict Issue
-
-To: GCP EM Team
-
-Dear Team,
-
-We have identified and resolved an issue that was affecting the uWSGI service startup due to conflicts with Autosys job restarts. Below are the details of the root cause and the resolution steps taken:
-
-Root Cause:
-The uWSGI boot-up process was taking longer than expected because the application needs to load database configurations, retrieve secrets from HashiCorp Vault (HVault), and authenticate with OAuth. During this process, the uWSGI Emperor is responsible for spawning the master and worker processes.
-
-While the application was taking time to load these configurations, the Autosys job was simultaneously trying to restart the service after checking for the master PID. This resulted in the Autosys job attempting to start the application again, causing duplicate PIDs to bind to the same port. Consequently, the socket file was getting removed, and the service became unresponsive, even though the PIDs were still active.
-
-Resolution:
-To handle this situation, we have implemented the following measures:
-
-Deployment and Startup Lock Files:
-
-Introduced lock files (deployment.lock and gcp_sys_workflows-startup.lock) to ensure that no duplicate startups occur during the deployment process or when the Autosys job triggers a restart.
-Enhanced Watchdog Script:
-
-Modified the watchdog script to check for the presence of these lock files before attempting a restart. If any lock file is detected, the script logs a message and exits to avoid conflicts.
-Implemented a wait mechanism in the startup script to allow sufficient time for the master PID to appear before proceeding with the rest of the startup process.
-Impact:
-These changes ensure that the uWSGI service starts up correctly without conflicts, and the service remains responsive. The measures prevent duplicate processes from attempting to bind to the same port and avoid the removal of the socket file.
-
-Steps Taken:
-
-Updated the watchdog script to include checks for deployment and startup lock files.
-Enhanced the startup script with a dynamic wait mechanism to handle delays in the application loading process.
-By implementing these changes, we have stabilized the service startup process and resolved the issues caused by conflicting restarts.
-
-Please feel free to reach out if you have any questions or need further information
