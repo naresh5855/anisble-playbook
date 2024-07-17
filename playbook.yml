@@ -43,3 +43,38 @@ if [ "$ice_bool" = "No" ]; then
 
   done
 fi
+
+
+Subject: Resolution of uWSGI Boot-up and Autosys Job Conflict Issue
+
+To: GCP EM Team
+
+Dear Team,
+
+We have identified and resolved an issue that was affecting the uWSGI service startup due to conflicts with Autosys job restarts. Below are the details of the root cause and the resolution steps taken:
+
+Root Cause:
+The uWSGI boot-up process was taking longer than expected because the application needs to load database configurations, retrieve secrets from HashiCorp Vault (HVault), and authenticate with OAuth. During this process, the uWSGI Emperor is responsible for spawning the master and worker processes.
+
+While the application was taking time to load these configurations, the Autosys job was simultaneously trying to restart the service after checking for the master PID. This resulted in the Autosys job attempting to start the application again, causing duplicate PIDs to bind to the same port. Consequently, the socket file was getting removed, and the service became unresponsive, even though the PIDs were still active.
+
+Resolution:
+To handle this situation, we have implemented the following measures:
+
+Deployment and Startup Lock Files:
+
+Introduced lock files (deployment.lock and gcp_sys_workflows-startup.lock) to ensure that no duplicate startups occur during the deployment process or when the Autosys job triggers a restart.
+Enhanced Watchdog Script:
+
+Modified the watchdog script to check for the presence of these lock files before attempting a restart. If any lock file is detected, the script logs a message and exits to avoid conflicts.
+Implemented a wait mechanism in the startup script to allow sufficient time for the master PID to appear before proceeding with the rest of the startup process.
+Impact:
+These changes ensure that the uWSGI service starts up correctly without conflicts, and the service remains responsive. The measures prevent duplicate processes from attempting to bind to the same port and avoid the removal of the socket file.
+
+Steps Taken:
+
+Updated the watchdog script to include checks for deployment and startup lock files.
+Enhanced the startup script with a dynamic wait mechanism to handle delays in the application loading process.
+By implementing these changes, we have stabilized the service startup process and resolved the issues caused by conflicting restarts.
+
+Please feel free to reach out if you have any questions or need further information
