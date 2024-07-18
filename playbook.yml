@@ -1,3 +1,5 @@
-Romil,
+Quick background: We are observing this issue on SIT and beta hosts only. The ZSGCPLS and ZSGRAL1B (newly using ID) IDs are not added to the AD OU group. The problem arises when NGINX_BUSP is removed, as NGINX_BUSP is the only group added to the AD OU group. Therefore, when NGINX_BUSP is removed, the service IDs fail because they are not part of the AD OU group.
 
-We have identified the root cause of the issue mentioned below and have submitted the necessary ARM ticket to gain access to the missing AD OU groups. Completing the full request will take a couple of hours.
+The correlation between NGINX_BUSP and the AD OU group is that the groups assigned to these service IDs are not included in the OU group; only NGINX_BUSP is. This is why the SSH connection is failing, as the SSHD configuration is set to allow SSH access only for IDs from this AD group.
+
+The service IDs are now successfully added to the OU group. Sindhu is currently testing, and she will provide an update shortly. This adjustment should not impact other lanes as these IDs are newly onboarded.
