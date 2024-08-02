@@ -1,11 +1,16 @@
 import timeit
 import time
+import math
+
+def long_running_task():
+    for i in range(10000):
+        math.factorial(1000)
 
 # Start the timer
 start_time = time.time()
 
-# Timing the execution of a simple loop
-execution_time = timeit.timeit('"-".join(str(n) for n in range(100))', number=10000)
+# Timing the execution of a long-running task
+execution_time = timeit.timeit('long_running_task()', globals=globals(), number=10)
 
 # End the timer
 end_time = time.time()
@@ -14,10 +19,6 @@ end_time = time.time()
 total_duration = end_time - start_time
 
 # Print the results
-print("Timing the execution of a simple loop:")
+print("Timing the execution of a long-running task:")
 print(f"Timeit execution time: {execution_time} seconds")
 print(f"Total duration: {total_duration} seconds")
-
-
-After reviewing the situation, we’ve determined that the increased interpreter time on RHEL 9 compared to RHEL 7 is likely due to OS-level changes. As this involves deeper OS-specific factors, we cannot investigate further at our end. It may require attention from system administrators or OS vendors.rsync -avz --exclude "gcp_amps" /gcp/prod1/apps/ your_ssh_user@hostB:/gcp/prod1/apps/
-rsync -avz --exclude "gcp_amps" /gcp/prod1/apps/ your_ssh_user@hostB:/gcp/prod1/apps/
