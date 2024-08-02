@@ -1,19 +1,20 @@
 import timeit
 import time
-import numpy as np
 
 def long_running_task():
-    size = 500
-    matrix_a = np.random.rand(size, size)
-    matrix_b = np.random.rand(size, size)
-    for _ in range(100):
-        np.dot(matrix_a, matrix_b)
+    result = []
+    for i in range(1000000):
+        s = str(i) + 'A' * 100
+        result.append(s)
+    result_str = ''.join(result)
+    reversed_str = result_str[::-1]
+    split_str = reversed_str.split('A')
 
 # Start the timer
 start_time = time.time()
 
 # Timing the execution of a long-running task
-execution_time = timeit.timeit('long_running_task()', globals=globals(), number=10)
+execution_time = timeit.timeit('long_running_task()', globals=globals(), number=1)
 
 # End the timer
 end_time = time.time()
