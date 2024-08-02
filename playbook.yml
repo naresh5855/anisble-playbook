@@ -1,5 +1,23 @@
-Hi Carlos,
+import timeit
+import time
 
-The deployment failed during the schema evaluation step on the USA primary host (runs on only the primary host), which led to the build failure.
+# Start the timer
+start_time = time.time()
 
-On both hosts, we installed the wheel package, and it went through successfully. However, on the primary UAS host, we run a few additional tasks, including UI regression and schema evaluation steps. This is where the issue occurred, resulting in a failure. Meanwhile, the secondary host sent a successful email notification as it completed the process without any issues.
+# Timing the execution of a simple loop
+execution_time = timeit.timeit('"-".join(str(n) for n in range(100))', number=10000)
+
+# End the timer
+end_time = time.time()
+
+# Calculate the total duration
+total_duration = end_time - start_time
+
+# Print the results
+print("Timing the execution of a simple loop:")
+print(f"Timeit execution time: {execution_time} seconds")
+print(f"Total duration: {total_duration} seconds")
+
+
+After reviewing the situation, we’ve determined that the increased interpreter time on RHEL 9 compared to RHEL 7 is likely due to OS-level changes. As this involves deeper OS-specific factors, we cannot investigate further at our end. It may require attention from system administrators or OS vendors.rsync -avz --exclude "gcp_amps" /gcp/prod1/apps/ your_ssh_user@hostB:/gcp/prod1/apps/
+rsync -avz --exclude "gcp_amps" /gcp/prod1/apps/ your_ssh_user@hostB:/gcp/prod1/apps/
