@@ -1,5 +1,1 @@
-for i in {1..10}; do
-    echo "Request $i"
-    curl -s -D - -o /dev/null https://service.example.com | grep X-Backend-Server
-    echo ""
-done
+ am writing to bring to your attention an issue we have identified with our current load balancer configuration. It appears that the Fully Qualified Domain Name (FDNS) URL we are using is pointing to an active IP address that is allocated to two different URLs. This misconfiguration is causing intermittent SSL certificate verification failures for our services.
