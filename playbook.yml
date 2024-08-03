@@ -1,28 +1,28 @@
-import timeit
-import time
+import ssl
+import socket
 
-def long_running_task():
-    result = []
-    for i in range(1000000):
-        s = str(i) + 'A' * 100
-        result.append(s)
-    result_str = ''.join(result)
-    reversed_str = result_str[::-1]
-    split_str = reversed_str.split('A')
+def verify_certificate(hostname, port=443, ca_bundle_path=None):
+    context = ssl.create_default_context()
 
-# Start the timer
-start_time = time.time()
+    if ca_bundle_path:
+        context.load_verify_locations(cafile=ca_bundle_path)
 
-# Timing the execution of a long-running task
-execution_time = timeit.timeit('long_running_task()', globals=globals(), number=1)
+    with socket.create_connection((hostname, port)) as sock:
+        with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+            cert = ssock.getpeercert()
+            print("Certificate Details:")
+            print(cert)
 
-# End the timer
-end_time = time.time()
+            if not cert:
+                raise Exception("No certificate received")
 
-# Calculate the total duration
-total_duration = end_time - start_time
+            try:
+                ssl.match_hostname(cert, hostname)
+                print("Certificate is valid.")
+            except ssl.CertificateError as e:
+                print(f"Certificate verification failed: {e}")
 
-# Print the results
-print("Timing the execution of a long-running task:")
-print(f"Timeit execution time: {execution_time} seconds")
-print(f"Total duration: {total_duration} seconds")
+if __name__ == "__main__":
+    hostname = "www.example.com"  # Replace with your hostname
+    ca_bundle_path = "/path/to/your/ca-bundle.crt"  # Replace with the path to your CA bundle if needed
+    verify_certificate(hostname, ca_bundle_path=ca_bundle_path)
