@@ -1,1 +1,5 @@
-echo | openssl s_client -connect gcp-kas.bankofamerica.com:443 -servername gcp-kas.bankofamerica.com | openssl x509 -noout -text
+for i in {1..10}; do
+    echo "Request $i"
+    curl -s -D - -o /dev/null https://service.example.com | grep X-Backend-Server
+    echo ""
+done
