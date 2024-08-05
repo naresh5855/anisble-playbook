@@ -1,3 +1,9 @@
-Hello Team,
+Thank you for your prompt action in resolving the issue with the DR load balancer IP.
 
-We have identified a critical issue with our load balancer configuration that needs urgent attention. The IP addresses (30.134.234.41 and 30.134.234.76) assigned to our load balancer are pointing to two different hosts. This needs to be resolved as soon as possible due to the upcoming DR activity planned for next week.
+I have a few follow-up questions to better understand the root cause and to prevent similar issues in the future:
+
+Root Cause Analysis:
+What was the root cause that led to a single IP being mapped to two different hosts?
+Provisioning Details:
+Did this issue occur during the initial provisioning of the load balancer, or was it mapped to dual hosts after provisioning?
+Understanding these details will help us avoid any surprises in the future and ensure smoother operations.
