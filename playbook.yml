@@ -1,10 +1,3 @@
+Hello Team,
 
-Certainly! Here is a rephrased version of your email:
-
-Subject: Urgent: Load Balancer Configuration Issue Causing SSL Verification Failures
-
-Hi Team,
-
-We have identified an issue with our current load balancer configuration. The active IP address associated with our FDNS gcp-kas.bankofamerica.com is allocated to two different URLs, one of which does not belong to our AIT. This misconfiguration is causing intermittent SSL certificate verification failures for our services.
-
-Could you please investigate why a single IP address is being assigned to two different hosts?
+We have identified a critical issue with our load balancer configuration that needs urgent attention. The IP addresses (30.134.234.41 and 30.134.234.76) assigned to our load balancer are pointing to two different hosts. This needs to be resolved as soon as possible due to the upcoming DR activity planned for next week.
