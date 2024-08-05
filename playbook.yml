@@ -1,9 +1,17 @@
-Thank you for your prompt action in resolving the issue with the DR load balancer IP.
+Hi Team,
 
-I have a few follow-up questions to better understand the root cause and to prevent similar issues in the future:
+I have observed the following in the UI backend logs:
 
-Root Cause Analysis:
-What was the root cause that led to a single IP being mapped to two different hosts?
-Provisioning Details:
-Did this issue occur during the initial provisioning of the load balancer, or was it mapped to dual hosts after provisioning?
-Understanding these details will help us avoid any surprises in the future and ensure smoother operations.
+bash
+Copy code
+2024-08-05 12:07:15,059 [ah-1180003-004.sdi.corp.bankofamerica.com] [UIBACKEND] [INFO] [https-jsse-nio-21286-exec-24] http_access_log - request: method=POST uri=/api/v1/job/getAllWorkflowStatusAdvanced response: statuscode=500 bytes=16386 duration=143207(ms) client: remoteip=30.166.252.69 useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" query=""
+It appears that this request takes approximately 143207 milliseconds (about 143 seconds) to execute, and it's resulting in a 500 Internal Server Error.
+
+Additionally, I've noticed that our frontend is configured to resolve the DNS and go through the load balancer and Nginx before reaching the backend host. This adds overhead due to DNS resolution and routing.
+
+Considering that the load balancing is handled at the frontend level, would it be more efficient for internal requests to use localhost instead of the DNS URL? This change could potentially reduce the latency and simplify the routing for backend communication.
+
+Moreover, could you also check and let us know how much time it takes to execute the same payload using API tools like Postman? This will help us compare and understand if the latency is introduced within our application or due to the routing configuration.
+
+Please let me know if we can implement these adjustments or if there are any other considerations we need to take into account.
+
