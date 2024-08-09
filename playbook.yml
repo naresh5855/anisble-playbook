@@ -1,8 +1,5 @@
-    location /chatbot {
-        proxy_pass http://backend-server:8071;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_redirect off;
-    }
+Troy, thank you for the prompt overview.
+
+Masthan, our objective is to ensure that a single script can monitor all our GCP services and automatically restart any service that goes down in the first phase.
+
+We will discuss the additional services during our call on Monday.
