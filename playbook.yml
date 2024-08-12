@@ -22,53 +22,31 @@ gather_versions() {
 }
 
 # Step 1: Compare Repositories
-echo "Checking repositories..." | tee -a $DIFF_FILE
 LOCAL_REPOS=$(find $LOCAL_BASE_PATH -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort)
 REMOTE_REPOS=$(gather_repos $REMOTE_BASE_PATH)
-
-diff <(echo "$LOCAL_REPOS") <(echo "$REMOTE_REPOS") | tee -a $DIFF_FILE
 
 # Iterate over each repository
 for REPO in $LOCAL_REPOS; do
     if echo "$REMOTE_REPOS" | grep -q "^$REPO$"; then
-        echo -e "\nRepository $REPO exists on both local and remote hosts" | tee -a $DIFF_FILE
-
         # Step 2: Compare Versions
-        echo "Checking versions for repository $REPO..." | tee -a $DIFF_FILE
         LOCAL_VERSIONS=$(find "$LOCAL_BASE_PATH/$REPO" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort)
         REMOTE_VERSIONS=$(gather_versions "$REMOTE_BASE_PATH/$REPO")
 
-        diff <(echo "$LOCAL_VERSIONS") <(echo "$REMOTE_VERSIONS") | tee -a $DIFF_FILE
-
-        # Iterate over each version
         for VERSION in $LOCAL_VERSIONS; do
             if echo "$REMOTE_VERSIONS" | grep -q "^$VERSION$"; then
-                echo "Version $VERSION exists on both local and remote hosts" | tee -a $DIFF_FILE
-
                 # Step 3: Check venv existence
                 LOCAL_VENV_PATH="$LOCAL_BASE_PATH/$REPO/$VERSION/venv"
                 REMOTE_VENV_PATH="$REMOTE_BASE_PATH/$REPO/$VERSION/venv"
 
-                if [ ! -d "$LOCAL_VENV_PATH" ]; then
-                    echo "venv is MISSING in $LOCAL_VENV_PATH on local host" | tee -a $DIFF_FILE
-                fi
-
-                if ! ssh $REMOTE_HOST "[ -d $REMOTE_VENV_PATH ]"; then
-                    echo "venv is MISSING in $REMOTE_VENV_PATH on $REMOTE_HOST" | tee -a $DIFF_FILE
+                if [ -d "$LOCAL_VENV_PATH" ] && ! ssh $REMOTE_HOST "[ -d $REMOTE_VENV_PATH ]"; then
+                    echo "venv is MISSING in $REMOTE_VENV_PATH on remote host" | tee -a $DIFF_FILE
                 fi
             else
-                echo "Version $VERSION exists on local host but not on remote host for repository $REPO" | tee -a $DIFF_FILE
+                echo "Version $VERSION in repository $REPO is MISSING on remote host" | tee -a $DIFF_FILE
             fi
         done
     else
-        echo "Repository $REPO exists on local host but not on remote host" | tee -a $DIFF_FILE
-    fi
-done
-
-# Check if there are any repositories on the remote host that are not on the local host
-for REPO in $REMOTE_REPOS; do
-    if ! echo "$LOCAL_REPOS" | grep -q "^$REPO$"; then
-        echo "Repository $REPO exists on remote host but not on local host" | tee -a $DIFF_FILE
+        echo "Repository $REPO is MISSING on remote host" | tee -a $DIFF_FILE
     fi
 done
 
