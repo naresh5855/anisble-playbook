@@ -1,32 +1,34 @@
 #!/bin/bash
 
-# Define the paths and hosts
-PATH_TO_CHECK="/appdat/cluster/prod/"
-HOST_A="user@hostA"
-HOST_B="user@hostB"
+# Define the local path and the remote host with path
+LOCAL_PATH="/appdat/cluster/prod/"
+REMOTE_HOST="user@remote_host"
+REMOTE_PATH="/appdat/cluster/prod/"
 
-# Get the list of directories from both hosts
-DIRS_A=$(ssh $HOST_A "find $PATH_TO_CHECK -maxdepth 1 -mindepth 1 -type d | sort")
-DIRS_B=$(ssh $HOST_B "find $PATH_TO_CHECK -maxdepth 1 -mindepth 1 -type d | sort")
+# Get the list of directories locally
+DIRS_LOCAL=$(find $LOCAL_PATH -maxdepth 1 -mindepth 1 -type d | sort)
 
-# Compare the directories between the two hosts
-echo "Comparing directories between Host A and Host B:"
-diff <(echo "$DIRS_A") <(echo "$DIRS_B")
+# Get the list of directories from the remote host
+DIRS_REMOTE=$(ssh $REMOTE_HOST "find $REMOTE_PATH -maxdepth 1 -mindepth 1 -type d | sort")
+
+# Compare the directories between the local host and the remote host
+echo "Comparing directories between local host and $REMOTE_HOST:"
+diff <(echo "$DIRS_LOCAL") <(echo "$DIRS_REMOTE")
 
 # Function to check venv existence
 check_venv() {
-    local HOST=$1
-    local DIR=$2
-    ssh $HOST "[[ -d $DIR/venv ]] && echo 'venv exists in $DIR on $HOST' || echo 'venv does NOT exist in $DIR on $HOST'"
+    local DIR=$1
+    [[ -d $DIR/venv ]] && echo "venv exists in $DIR" || echo "venv does NOT exist in $DIR"
 }
 
-# Check venv existence in each directory on both hosts
-echo -e "\nChecking for venv existence on Host A:"
-for DIR in $DIRS_A; do
-    check_venv $HOST_A $DIR
+# Check venv existence in each local directory
+echo -e "\nChecking for venv existence on local host:"
+for DIR in $DIRS_LOCAL; do
+    check_venv $DIR
 done
 
-echo -e "\nChecking for venv existence on Host B:"
-for DIR in $DIRS_B; do
-    check_venv $HOST_B $DIR
+# Check venv existence in each remote directory
+echo -e "\nChecking for venv existence on $REMOTE_HOST:"
+for DIR in $DIRS_REMOTE; do
+    ssh $REMOTE_HOST "[[ -d $DIR/venv ]] && echo 'venv exists in $DIR' || echo 'venv does NOT exist in $DIR'"
 done
