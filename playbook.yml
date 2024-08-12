@@ -1,5 +1,32 @@
-Troy, thank you for the prompt overview.
+#!/bin/bash
 
-Masthan, our objective is to ensure that a single script can monitor all our GCP services and automatically restart any service that goes down in the first phase.
+# Define the paths and hosts
+PATH_TO_CHECK="/appdat/cluster/prod/"
+HOST_A="user@hostA"
+HOST_B="user@hostB"
 
-We will discuss the additional services during our call on Monday.
+# Get the list of directories from both hosts
+DIRS_A=$(ssh $HOST_A "find $PATH_TO_CHECK -maxdepth 1 -mindepth 1 -type d | sort")
+DIRS_B=$(ssh $HOST_B "find $PATH_TO_CHECK -maxdepth 1 -mindepth 1 -type d | sort")
+
+# Compare the directories between the two hosts
+echo "Comparing directories between Host A and Host B:"
+diff <(echo "$DIRS_A") <(echo "$DIRS_B")
+
+# Function to check venv existence
+check_venv() {
+    local HOST=$1
+    local DIR=$2
+    ssh $HOST "[[ -d $DIR/venv ]] && echo 'venv exists in $DIR on $HOST' || echo 'venv does NOT exist in $DIR on $HOST'"
+}
+
+# Check venv existence in each directory on both hosts
+echo -e "\nChecking for venv existence on Host A:"
+for DIR in $DIRS_A; do
+    check_venv $HOST_A $DIR
+done
+
+echo -e "\nChecking for venv existence on Host B:"
+for DIR in $DIRS_B; do
+    check_venv $HOST_B $DIR
+done
