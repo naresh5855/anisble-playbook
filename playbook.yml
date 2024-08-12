@@ -9,20 +9,33 @@ REMOTE_BASE_PATH="/gcp/dev1/apps/"
 DIFF_FILE="diff.txt"
 > $DIFF_FILE  # Clear the diff file
 
-# Function to check venv existence and write to diff file
-check_venv() {
+# Function to check venv existence locally
+check_local_venv() {
     local BASE_PATH=$1
     local REPO_PATH=$2
-    local HOST=$3
-    local HOST_NAME=$4
 
     # Iterate through each version within the repository
-    for VERSION_PATH in $(ssh $HOST "find $BASE_PATH/$REPO_PATH -maxdepth 1 -mindepth 1 -type d"); do
-        VERSION=$(basename $VERSION_PATH)
-        if ssh $HOST "[[ -d $VERSION_PATH/venv ]]"; then
-            echo "venv exists in $VERSION_PATH on $HOST_NAME"
+    for VERSION_PATH in $(find $BASE_PATH/$REPO_PATH -maxdepth 1 -mindepth 1 -type d); do
+        if [[ -d $VERSION_PATH/venv ]]; then
+            echo "venv exists in $VERSION_PATH on local host"
         else
-            echo "venv is MISSING in $REPO_PATH/$VERSION on $HOST_NAME" | tee -a $DIFF_FILE
+            echo "venv is MISSING in $REPO_PATH/$(basename $VERSION_PATH) on local host" | tee -a $DIFF_FILE
+        fi
+    done
+}
+
+# Function to check venv existence remotely
+check_remote_venv() {
+    local BASE_PATH=$1
+    local REPO_PATH=$2
+
+    # Iterate through each version within the repository on the remote host
+    for VERSION_PATH in $(ssh $REMOTE_HOST "find $BASE_PATH/$REPO_PATH -maxdepth 1 -mindepth 1 -type d"); do
+        VERSION=$(basename $VERSION_PATH)
+        if ssh $REMOTE_HOST "[[ -d $VERSION_PATH/venv ]]"; then
+            echo "venv exists in $VERSION_PATH on $REMOTE_HOST"
+        else
+            echo "venv is MISSING in $REPO_PATH/$VERSION on $REMOTE_HOST" | tee -a $DIFF_FILE
         fi
     done
 }
@@ -34,7 +47,7 @@ REPOS_LOCAL=$(find $LOCAL_BASE_PATH -maxdepth 1 -mindepth 1 -type d -exec basena
 echo "Checking for venv existence in all versions under each repo on the local host:"
 for REPO in $REPOS_LOCAL; do
     echo -e "\nRepository: $REPO"
-    check_venv $LOCAL_BASE_PATH $REPO "localhost" "local host"
+    check_local_venv $LOCAL_BASE_PATH $REPO
 done
 
 # Get the list of repositories from the remote host
@@ -44,7 +57,7 @@ REPOS_REMOTE=$(ssh $REMOTE_HOST "find $REMOTE_BASE_PATH -maxdepth 1 -mindepth 1 
 echo -e "\nChecking for venv existence in all versions under each repo on $REMOTE_HOST:"
 for REPO in $REPOS_REMOTE; do
     echo -e "\nRepository: $REPO"
-    check_venv $REMOTE_BASE_PATH $REPO $REMOTE_HOST "$REMOTE_HOST"
+    check_remote_venv $REMOTE_BASE_PATH $REPO
 done
 
 # Summary
