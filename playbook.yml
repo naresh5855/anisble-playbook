@@ -1,79 +1,35 @@
 #!/bin/bash
 
-# Dry run for grawfd
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd/ user@remote:/gcp/destination/grawfd/
+# Function to check if NGINX is running for a given environment
+check_nginx() {
+    local ENV=$1
+    local APP_NAME=$2
+    local NGINX_CONF=$3
 
-# Dry run for gcp_temp
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gcp_temp/ user@remote:/gcp/destination/gcp_temp/
+    PROCESS_MATCH_COUNT=`pgrep -f $NGINX_CONF | wc -l`
 
-# Dry run for gcp_qa
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gcp_qa/ user@remote:/gcp/destination/gcp_qa/
+    if [ ! -f "/gcp/autosys/watchdog/${ENV}/${APP_NAME}_DOWN" ]; then
+        if [ "$PROCESS_MATCH_COUNT" -eq "0" ]; then
+            printf "WARN: NGINX process is not running for $ENV\n"
+            /usr/sbin/nginx -c $NGINX_CONF
+            send_outage_alert $ENV $APP_NAME
+            sleep 5
+        else
+            printf "INFO: $APP_NAME is running – OK\n"
+        fi
+    else
+        if [ "$PROCESS_MATCH_COUNT" -eq "0" ]; then
+            printf "WARN: NGINX process is not running for $ENV\n"
+            /usr/sbin/nginx -c $NGINX_CONF
+            sleep 5
+        else
+            printf "INFO: $APP_NAME is running – OK\n"
+            send_operational_alert $ENV $APP_NAME
+        fi
+    fi
+}
 
-# Dry run for gra_workflows_common
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gra_workflows_common/ user@remote:/gcp/destination/gra_workflows_common/
-
-# Dry run for gra_archive
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gra_archive/ user@remote:/gcp/destination/gra_archive/
-
-# Dry run for grawfd_scenario_generation
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_scenario_generation/ user@remote:/gcp/destination/grawfd_scenario_generation/
-
-# Dry run for infra_tools_backup
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/infra_tools_backup/ user@remote:/gcp/destination/infra_tools_backup/
-
-# Dry run for grawfd_physical_climate_risk
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_physical_climate_risk/ user@remote:/gcp/destination/grawfd_physical_climate_risk/
-
-# Dry run for grawfd_consumer_astm
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_consumer_astm/ user@remote:/gcp/destination/grawfd_consumer_astm/
-
-# Dry run for grawfd_wholesale_loss_forecasting
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_wholesale_loss_forecasting/ user@remote:/gcp/destination/grawfd_wholesale_loss_forecasting/
-
-# Dry run for grawfd_wildfire_damage
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_wildfire_damage/ user@remote:/gcp/destination/grawfd_wildfire_damage/
-
-# Dry run for grawfd_physical_risk_damage
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_physical_risk_damage/ user@remote:/gcp/destination/grawfd_physical_risk_damage/
-
-# Dry run for grawfd_mortgage_lob
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_mortgage_lob/ user@remote:/gcp/destination/grawfd_mortgage_lob/
-
-# Dry run for grawfd_mortgage
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_mortgage/ user@remote:/gcp/destination/grawfd_mortgage/
-
-# Dry run for gcp_lite
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gcp_lite/ user@remote:/gcp/destination/gcp_lite/
-
-# Dry run for gcp_lite_consumer
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gcp_lite_consumer/ user@remote:/gcp/destination/gcp_lite_consumer/
-
-# Dry run for gcp_lite_consumer_ops
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gcp_lite_consumer_ops/ user@remote:/gcp/destination/gcp_lite_consumer_ops/
-
-# Dry run for gcp_non_kernel
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gcp_non_kernel/ user@remote:/gcp/destination/gcp_non_kernel/
-
-# Dry run for wf_signature
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/wf_signature/ user@remote:/gcp/destination/wf_signature/
-
-# Dry run for job_management_service
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/job_management_service/ user@remote:/gcp/destination/job_management_service/
-
-# Dry run for infra_tools
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/infra_tools/ user@remote:/gcp/destination/infra_tools/
-
-# Dry run for grawfd_climate
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_climate/ user@remote:/gcp/destination/grawfd_climate/
-
-# Dry run for grawfd_ops_risk
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/grawfd_ops_risk/ user@remote:/gcp/destination/grawfd_ops_risk/
-
-# Dry run for telegramd
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/telegramd/ user@remote:/gcp/destination/telegramd/
-
-# Dry run for gcp_py_samples
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/gcp_py_samples/ user@remote:/gcp/destination/gcp_py_samples/
-
-# Dry run for data
-rsync -avz --dry-run /appdata/clustersusercode/prd/dist/prod1/data/ user@remote:/gcp/destination/data/
+# Call the function for each environment
+check_nginx "S1" "NGINX_API" "/gcp/$ENV/config/nginx.conf"
+check_nginx "S1" "NGINX_UI" "/gcp/$ENV/config/nginx_ui.conf"
+check_nginx "NGINX_DEVOPS" "NGINX" "/gcp/lib/config/nginx_devOps_site.conf"
