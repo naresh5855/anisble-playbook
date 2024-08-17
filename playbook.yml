@@ -1,1 +1,28 @@
-dditionally, it appears the task is configured to fail when it doesn't receive a 200 or 201 status code in the stdout logs, which is causing Ansible to proceed with the subsequent steps despite the task failing."
+- name: Check GCP version and code misuse
+  block:
+    - name: Perform GCP version and code misuse checks
+      uri:
+        url: "{{ nginx.protocol }}://{{ host.name }}:{{ nginx.port }}/platform/{{ item.endpoint }}"
+        method: POST
+        body_format: json
+        body: >
+          {{
+            {
+              "repo_name": repo,
+              "repo_version": normalized_version,
+              "gcp_version": item.gcp_version,
+              "branch_name": branch_name,
+              **({"spk": item.spk} if item.spk is defined else {})
+            }
+          }}
+        return_content: yes
+      loop:
+        - { endpoint: 'version/block', gcp_version: "{{ gcp_version }}", spk: undefined }
+        - { endpoint: 'validator/code_misuse', gcp_version: undefined, spk: "{{ spk }}" }
+      register: http_responses
+
+  rescue:
+    - name: Handle failures
+      fail:
+        msg: "{{ http_responses }}"
+      when: uasl_hosts | selectattr("name", "equalto", inventory_hostname) | list | length > 0
