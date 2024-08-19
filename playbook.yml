@@ -13,12 +13,17 @@
           gcp_version: "{{ gcp_version }}"
         return_content: yes
       register: http_responses
-      failed_when:
-        - http_responses.json.status != "OK"   # Fails if the status in the response JSON is not "OK"
-        - "'FAILED' in http_responses.json.message"  # Fails if the message indicates failure
-        - http_responses.status != 200  # Additional check: if the actual HTTP status is not 200
-  rescue:
-    - name: Display failure and stop execution
-      fail:
-        msg: "GCP Code misuse detected. Error: {{ http_responses.json.message }}"
 
+    - name: Fail if all failure conditions are met
+      fail:
+        msg: "Task failed due to response: {{ http_responses.json }}"
+      when: 
+        - http_responses.json.status == "FAILED"  # Check if status is 'FAILED'
+        - "'FAILED' in http_responses.json.status"  # Ensure 'FAILED' is part of the status
+        - http_responses.status not in [200, 201]  # Ensure HTTP status is not 200/201
+
+  rescue:
+    - name: GCP Code internal used
+      fail:
+        msg: "{{ http_responses.json }}"
+  when: uasl_hosts | selectattr("name", "equalto", inventory_hostname) | list | length > 0
