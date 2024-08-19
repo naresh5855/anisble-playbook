@@ -1,28 +1,24 @@
-- name: Check GCP version and code misuse
+- name: Check for code misuse keywords
   block:
-    - name: Perform GCP version and code misuse checks
+    - name: Call code misuse endpoint
       uri:
-        url: "{{ nginx.protocol }}://{{ host.name }}:{{ nginx.port }}/platform/{{ item.endpoint }}"
+        url: "{{ nginx.protocol }}://{{ host.name }}:{{ nginx.port }}/platform/validator/code_misuse"
         method: POST
         body_format: json
-        body: >
-          {{
-            {
-              "repo_name": repo,
-              "repo_version": normalized_version,
-              "gcp_version": item.gcp_version,
-              "branch_name": branch_name,
-              **({"spk": item.spk} if item.spk is defined else {})
-            }
-          }}
+        body:
+          repo_name: "{{ repo }}"
+          spk: "{{ spk }}"
+          branch_name: "{{ branch_name }}"
+          repo_version: "{{ normalized_version }}"
+          gcp_version: "{{ gcp_version }}"
         return_content: yes
-      loop:
-        - { endpoint: 'version/block', gcp_version: "{{ gcp_version }}", spk: undefined }
-        - { endpoint: 'validator/code_misuse', gcp_version: undefined, spk: "{{ spk }}" }
       register: http_responses
-
+      failed_when:
+        - http_responses.json.status != "OK"   # Fails if the status in the response JSON is not "OK"
+        - "'FAILED' in http_responses.json.message"  # Fails if the message indicates failure
+        - http_responses.status != 200  # Additional check: if the actual HTTP status is not 200
   rescue:
-    - name: Handle failures
+    - name: Display failure and stop execution
       fail:
-        msg: "{{ http_responses }}"
-      when: uasl_hosts | selectattr("name", "equalto", inventory_hostname) | list | length > 0
+        msg: "GCP Code misuse detected. Error: {{ http_responses.json.message }}"
+
