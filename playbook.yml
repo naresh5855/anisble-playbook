@@ -1,11 +1,10 @@
-- name: Debug the status field
-  debug:
-    var: http_responses.json.status
+Certainly! Here's a rephrased version of the message:
 
-- name: Debug the HTTP status code
-  debug:
-    var: http_responses.status
+---
 
-- name: Debug the message field
-  debug:
-    var: http_responses.json.message
+I've updated my comments, Troy. Once you've made the changes, please deploy them in the dev/SIT lanes and monitor the results for one week. If any issues arise, we can enhance the script based on our observations.
+
+Thanks,  
+Naresh
+
+---
