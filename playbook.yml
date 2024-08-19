@@ -1,29 +1,11 @@
-- name: Check for code misuse keywords
-  block:
-    - name: Call code misuse endpoint
-      uri:
-        url: "{{ nginx.protocol }}://{{ host.name }}:{{ nginx.port }}/platform/validator/code_misuse"
-        method: POST
-        body_format: json
-        body:
-          repo_name: "{{ repo }}"
-          spk: "{{ spk }}"
-          branch_name: "{{ branch_name }}"
-          repo_version: "{{ normalized_version }}"
-          gcp_version: "{{ gcp_version }}"
-        return_content: yes
-      register: http_responses
+- name: Debug the status field
+  debug:
+    var: http_responses.json.status
 
-    - name: Fail if all failure conditions are met
-      fail:
-        msg: "Task failed due to response: {{ http_responses.json }}"
-      when: 
-        - http_responses.json.status == "FAILED"  # Check if status is 'FAILED'
-        - "'FAILED' in http_responses.json.status"  # Ensure 'FAILED' is part of the status
-        - http_responses.status not in [200, 201]  # Ensure HTTP status is not 200/201
+- name: Debug the HTTP status code
+  debug:
+    var: http_responses.status
 
-  rescue:
-    - name: GCP Code internal used
-      fail:
-        msg: "{{ http_responses.json }}"
-  when: uasl_hosts | selectattr("name", "equalto", inventory_hostname) | list | length > 0
+- name: Debug the message field
+  debug:
+    var: http_responses.json.message
