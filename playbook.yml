@@ -1,10 +1,5 @@
-Certainly! Here's a rephrased version of the message:
+We are looking to import the Horizon library and customize it based on our project needs. Our goal is to allow our users to leverage our custom library by simply importing it with something like @gcp, while only needing to pass a few parameters (ait, repo, and spk) for their respective repositories.
 
----
+From what I understand, to achieve this, Horizon would need to add our repository URL into the global configurations. Could you please confirm if this is correct?
 
-I've updated my comments, Troy. Once you've made the changes, please deploy them in the dev/SIT lanes and monitor the results for one week. If any issues arise, we can enhance the script based on our observations.
-
-Thanks,  
-Naresh
-
----
+Additionally, I’d like to check if this approach is feasible. If so, could you please advise on the specific steps we would need to take on our end to facilitate this process?
