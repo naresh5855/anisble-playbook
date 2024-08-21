@@ -6,6 +6,7 @@ class HVaultClient:
     def __init__(self, config_file_path):
         self.config = self._load_config(config_file_path)
         self.client = self._create_client()
+        self.token = None
 
     def _load_config(self, config_file_path):
         with open(config_file_path, 'r') as file:
@@ -22,10 +23,17 @@ class HVaultClient:
             'namespace': self.config['vault_namespace']
         }
 
-    def _send_request(self, endpoint, payload, error_msg):
-        url = f"{self.client['url']}/v1/auth/{endpoint}"
-        headers = {'X-Vault-Namespace': self.client['namespace']}
-        response = requests.post(url, json=payload, headers=headers)
+    def _send_request(self, endpoint, payload=None, headers=None, method="POST", error_msg="Request failed"):
+        url = f"{self.client['url']}/v1/{endpoint}"
+        headers = headers or {}
+        headers.update({'X-Vault-Token': self.token, 'X-Vault-Namespace': self.client['namespace']})
+
+        if method.upper() == "POST":
+            response = requests.post(url, json=payload, headers=headers)
+        elif method.upper() == "GET":
+            response = requests.get(url, headers=headers)
+        else:
+            raise ValueError("Unsupported HTTP method")
 
         if response.status_code != 200:
             raise Exception(f"{error_msg}. Status code: {response.status_code}, Response: {response.text}")
@@ -37,14 +45,25 @@ class HVaultClient:
             "role_id": self.config['vault_service_id'],
             "secret_id": self.config['vault_secret']
         }
-        response = self._send_request('approle/login', payload, "GES Authentication failed")
-        return response['auth']['client_token']
+        response = self._send_request('auth/approle/login', payload, error_msg="GES Authentication failed")
+        self.token = response['auth']['client_token']
+        return self.token
+
+    def get_credential(self, credentials_key):
+        secret_path = f"{self.client['namespace']}/{credentials_key}"
+        response = self._send_request(f'secret/data/{secret_path}', method="GET", error_msg="Failed to retrieve credentials")
+        return response['data']['data']
 
 def main():
     hvault_conf_path = '/path/to/your/hvault.conf'
+    credentials_key = 'your-credentials-key'
+
     hvault_client = HVaultClient(hvault_conf_path)
     token = hvault_client.login()
     print(f"Token: {token}")
+
+    credentials = hvault_client.get_credential(credentials_key)
+    print("Retrieved Credentials:", json.dumps(credentials, indent=4))
 
 if __name__ == '__main__':
     main()
