@@ -1,88 +1,18 @@
-import os
-import requests
-import json
-import argparse
+Subject: hVault Credential Keys Check Script
 
-class HVaultClient:
-    def __init__(self, config_file_path):
-        self.config = self._load_config(config_file_path)
-        self.client = self._create_client()
-        self.token = None
+Team,
 
-    def _load_config(self, config_file_path):
-        with open(config_file_path, 'r') as file:
-            config = {}
-            for line in file:
-                if '=' in line:
-                    key, value = line.strip().split('=', 1)
-                    config[key.strip()] = value.strip()
-        return config
+I’ve created a simple script to check hVault credential keys. The script retrieves the required namespace, role_id, and secret from the server's hvault.conf file. It then logs into hVault, retrieves a token, and fetches the specified client credentials.
 
-    def _create_client(self):
-        return {
-            'url': self.config['vault_url'],
-            'namespace': self.config['vault_namespace']
-        }
+You can find the script here: hVault Connection Check Script
 
-    def _send_request(self, endpoint, payload=None, headers=None, method="POST", error_msg="Request failed"):
-        url = f"{self.client['url']}/v1/{endpoint}"
-        headers = headers or {}
-        headers.update({'X-Vault-Token': self.token, 'X-Vault-Namespace': self.client['namespace']})
+Usage:
 
-        if method.upper() == "POST":
-            response = requests.post(url, json=payload, headers=headers)
-        elif method.upper() == "GET":
-            response = requests.get(url, headers=headers)
-        else:
-            raise ValueError("Unsupported HTTP method")
-
-        if response.status_code != 200:
-            raise Exception(f"{error_msg}. Status code: {response.status_code}, Response: {response.text}")
-        
-        return response.json()
-
-    def login(self):
-        payload = {
-            "role_id": self.config['vault_service_id'],
-            "secret_id": self.config['vault_secret']
-        }
-        response = self._send_request('auth/approle/login', payload, error_msg="GES Authentication failed")
-        self.token = response['auth']['client_token']
-        print(f"Token obtained: {self.token}")  # Debugging
-        return self.token
-
-    def get_credential(self, credentials_key):
-        secret_path = f"{credentials_key}"
-        print(f"Attempting to retrieve secret from path: {secret_path}")
-        full_url = f'secret/data/{secret_path}'
-        print(f"Full URL: {self.client['url']}/v1/{full_url}")
-        response = self._send_request(full_url, method="GET", error_msg="Failed to retrieve credentials")
-        return response['data']['data']
-
-def main():
-    # Set up command-line arguments
-    parser = argparse.ArgumentParser(description='hVault Client Script')
-    parser.add_argument('--env', required=True, help='Environment to use (e.g., dev1, prod)')
-    parser.add_argument('--key', required=True, help='Credential key to retrieve')
-
-    args = parser.parse_args()
-
-    # Construct the config file path
-    config_file_path = f'/gcp/security/secrets/{args.env}/hvault.conf'
-
-    # Set the environment variable
-    os.environ['ENV'] = args.env
-
-    # Instantiate the HVaultClient
-    hvault_client = HVaultClient(config_file_path)
-
-    # Login to hVault and retrieve the token
-    token = hvault_client.login()
-    print(f"Token: {token}")
-
-    # Get the credentials
-    credentials = hvault_client.get_credential(args.key)
-    print("Retrieved Credentials:", json.dumps(credentials, indent=4))
-
-if __name__ == '__main__':
-    main()
+Activate the virtual environment:
+bash
+Copy code
+source /gcp/uwsgi/venv/bin/activate
+Run the script with the desired environment and key:
+bash
+Copy code
+python hvault_connection_check.py --env dev1 --key GCP_CRED_L1D
