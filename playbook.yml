@@ -1,15 +1,11 @@
 import os
-import hvac
+import requests
 import json
 
 class HVaultClient:
     def __init__(self, config_file_path):
         self.config = self._load_config(config_file_path)
-        self.client = hvac.Client(
-            url=self.config['vault_url'],
-            verify=True
-        )
-        self.namespace = self.config['vault_namespace']
+        self.client = self._create_client()
 
     def _load_config(self, config_file_path):
         with open(config_file_path, 'r') as file:
@@ -20,33 +16,35 @@ class HVaultClient:
                     config[key.strip()] = value.strip()
         return config
 
+    def _create_client(self):
+        return {
+            'url': self.config['vault_url'],
+            'namespace': self.config['vault_namespace']
+        }
+
+    def _send_request(self, endpoint, payload, error_msg):
+        url = f"{self.client['url']}/v1/auth/{endpoint}"
+        headers = {'X-Vault-Namespace': self.client['namespace']}
+        response = requests.post(url, json=payload, headers=headers)
+
+        if response.status_code != 200:
+            raise Exception(f"{error_msg}. Status code: {response.status_code}, Response: {response.text}")
+        
+        return response.json()
+
     def login(self):
         payload = {
-            'role_id': self.config['vault_service_id'],
-            'secret_id': self.config['vault_secret']
+            "role_id": self.config['vault_service_id'],
+            "secret_id": self.config['vault_secret']
         }
-        response = self.client.auth.approle.login(
-            role_id=payload['role_id'],
-            secret_id=payload['secret_id']
-        )
-        self.client.token = response['auth']['client_token']
-        return self.client.token
-
-    def get_credential(self, credentials_key):
-        secret_path = f"{self.namespace}/{credentials_key}"
-        secret = self.client.secrets.kv.v2.read_secret_version(path=secret_path)
-        return secret['data']['data']
+        response = self._send_request('approle/login', payload, "GES Authentication failed")
+        return response['auth']['client_token']
 
 def main():
     hvault_conf_path = '/path/to/your/hvault.conf'
-    credentials_key = 'your-credentials-key'
-
     hvault_client = HVaultClient(hvault_conf_path)
     token = hvault_client.login()
     print(f"Token: {token}")
-
-    credentials = hvault_client.get_credential(credentials_key)
-    print("Retrieved Credentials:", json.dumps(credentials, indent=4))
 
 if __name__ == '__main__':
     main()
