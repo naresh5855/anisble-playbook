@@ -1,5 +1,52 @@
-We are looking to import the Horizon library and customize it based on our project needs. Our goal is to allow our users to leverage our custom library by simply importing it with something like @gcp, while only needing to pass a few parameters (ait, repo, and spk) for their respective repositories.
+import os
+import hvac
+import json
 
-From what I understand, to achieve this, Horizon would need to add our repository URL into the global configurations. Could you please confirm if this is correct?
+class HVaultClient:
+    def __init__(self, config_file_path):
+        self.config = self._load_config(config_file_path)
+        self.client = hvac.Client(
+            url=self.config['vault_url'],
+            verify=True
+        )
+        self.namespace = self.config['vault_namespace']
 
-Additionally, I’d like to check if this approach is feasible. If so, could you please advise on the specific steps we would need to take on our end to facilitate this process?
+    def _load_config(self, config_file_path):
+        with open(config_file_path, 'r') as file:
+            config = {}
+            for line in file:
+                if '=' in line:
+                    key, value = line.strip().split('=', 1)
+                    config[key.strip()] = value.strip()
+        return config
+
+    def login(self):
+        payload = {
+            'role_id': self.config['vault_service_id'],
+            'secret_id': self.config['vault_secret']
+        }
+        response = self.client.auth.approle.login(
+            role_id=payload['role_id'],
+            secret_id=payload['secret_id']
+        )
+        self.client.token = response['auth']['client_token']
+        return self.client.token
+
+    def get_credential(self, credentials_key):
+        secret_path = f"{self.namespace}/{credentials_key}"
+        secret = self.client.secrets.kv.v2.read_secret_version(path=secret_path)
+        return secret['data']['data']
+
+def main():
+    hvault_conf_path = '/path/to/your/hvault.conf'
+    credentials_key = 'your-credentials-key'
+
+    hvault_client = HVaultClient(hvault_conf_path)
+    token = hvault_client.login()
+    print(f"Token: {token}")
+
+    credentials = hvault_client.get_credential(credentials_key)
+    print("Retrieved Credentials:", json.dumps(credentials, indent=4))
+
+if __name__ == '__main__':
+    main()
