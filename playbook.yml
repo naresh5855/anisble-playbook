@@ -1,5 +1,7 @@
 def get_credential(self, credentials_key):
     secret_path = f"{self.client['namespace']}/{credentials_key}"
     print(f"Attempting to retrieve secret from path: {secret_path}")
-    response = self._send_request(f'secret/data/{secret_path}', method="GET", error_msg="Failed to retrieve credentials")
+    full_url = f'secret/data/{secret_path}'
+    print(f"Full URL: {self.client['url']}/v1/{full_url}")
+    response = self._send_request(full_url, method="GET", error_msg="Failed to retrieve credentials")
     return response['data']['data']
