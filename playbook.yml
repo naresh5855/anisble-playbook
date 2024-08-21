@@ -1,18 +1,21 @@
-Subject: hVault Credential Keys Check Script
+#!/bin/bash
 
-Team,
+# Files to compare
+file_a="path/to/file_a"
+file_b="path/to/file_b"
 
-I’ve created a simple script to check hVault credential keys. The script retrieves the required namespace, role_id, and secret from the server's hvault.conf file. It then logs into hVault, retrieves a token, and fetches the specified client credentials.
+# Check if both files exist
+if [[ ! -f "$file_a" || ! -f "$file_b" ]]; then
+  echo "One or both files do not exist."
+  exit 1
+fi
 
-You can find the script here: hVault Connection Check Script
+# Compare the files and output the differences
+diff_output=$(diff "$file_a" "$file_b")
 
-Usage:
-
-Activate the virtual environment:
-bash
-Copy code
-source /gcp/uwsgi/venv/bin/activate
-Run the script with the desired environment and key:
-bash
-Copy code
-python hvault_connection_check.py --env dev1 --key GCP_CRED_L1D
+if [[ -z "$diff_output" ]]; then
+  echo "The files are identical."
+else
+  echo "The files differ:"
+  echo "$diff_output"
+fi
