@@ -1,1 +1,3 @@
-I've reviewed the logs you mentioned. It appears that the 200 status code is being returned by the UI API layer, which indicates that the API request was received and processed successfully. However, the actual processing of the data or task within the application has failed, as evidenced by the payload's error message related to user code execution.
+The client_max_body_size 20G parameter in NGINX dictates the maximum file upload size, currently set at 20 GB.
+
+Ganga, could we coordinate with the NAS team to evaluate the I/O throughput on the NAS? Since the uploaded files are directed to the /gcp/objects path
