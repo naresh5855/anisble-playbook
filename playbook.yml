@@ -1,1 +1,57 @@
-Thanks, Raja. We need to identify why the file upload is taking longer than expected. I'll reach out to you offline later today to discuss this further.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+</head>
+<body>
+    <h1>Upload a File</h1>
+    <form action="http://your-server/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <input type="submit" value="Upload">
+    </form>
+</body>
+</html>
+
+
+from flask import Flask, request, redirect, url_for
+
+app = Flask(__name__)
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return 'No file part', 400
+    file = request.files['file']
+    if file.filename == '':
+        return 'No selected file', 400
+    file.save('/path/to/save/' + file.filename)
+    return 'File uploaded successfully', 200
+
+if __name__ == "__main__":
+    app.run()
+
+
+[uwsgi]
+module = app:app
+
+master = true
+processes = 5
+
+socket = /tmp/yourapp.sock
+chmod-socket = 660
+vacuum = true
+
+die-on-term = true
+
+server {
+    listen 80;
+    server_name your-server-name;
+
+    location /upload {
+        client_max_body_size 20G;  # Adjust according to your needs
+        include uwsgi_params;
+        uwsgi_pass unix:/tmp/yourapp.sock;
+    }
+}
