@@ -1,3 +1,1 @@
-The client_max_body_size 20G parameter in NGINX dictates the maximum file upload size, currently set at 20 GB.
-
-Ganga, could we coordinate with the NAS team to evaluate the I/O throughput on the NAS? Since the uploaded files are directed to the /gcp/objects path
+Thanks, Raja. We need to identify why the file upload is taking longer than expected. I'll reach out to you offline later today to discuss this further.
