@@ -1,16 +1,60 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)  # Enable CORS if needed
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'status': 'fail', 'message': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'status': 'fail', 'message': 'No selected file'}), 400
+    
+    save_path = '/path/to/save/' + file.filename
+    file.save(save_path)
+    
+    return jsonify({'status': 'success', 'message': 'File uploaded successfully', 'file': file.filename}), 200
+
+if __name__ == "__main__":
+    app.run()
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload</title>
+    <title>File Upload with Progress</title>
+    <style>
+        #progressBar {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        #progressBarFill {
+            height: 20px;
+            width: 0%;
+            background-color: #4caf50;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
     <h1>Upload a File</h1>
-    <form id="uploadForm" action="http://your-server/upload" method="POST" enctype="multipart/form-data">
+    <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
         <input type="file" name="file" id="fileInput">
         <input type="submit" value="Upload">
     </form>
+    
+    <div id="progressBar">
+        <div id="progressBarFill">0%</</div>
+    </div>
     
     <p id="statusMessage"></p>
     <p id="timeMessage"></p>
@@ -26,14 +70,38 @@
             const xhr = new XMLHttpRequest();
             xhr.open('POST', this.action, true);
             
+            const startTime = new Date();
+
+            xhr.upload.onprogress = function(event) {
+                const progressBarFill = document.getElementById('progressBarFill');
+                if (event.lengthComputable) {
+                    const percentComplete = (event.loaded / event.total) * 100;
+                    progressBarFill.style.width = percentComplete + '%';
+                    progressBarFill.textContent = Math.round(percentComplete) + '%';
+                }
+            };
+
             xhr.onload = function() {
                 const statusMessage = document.getElementById('statusMessage');
                 const timeMessage = document.getElementById('timeMessage');
                 
+                const endTime = new Date();
+                const timeTaken = (endTime - startTime) / 1000; // Time taken in seconds
+                
                 if (xhr.status === 200) {
-                    statusMessage.textContent = 'File uploaded successfully!';
-                    const now = new Date();
-                    timeMessage.textContent = 'Upload completed at: ' + now.toLocaleTimeString();
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.status === 'success') {
+                            statusMessage.textContent = 'File uploaded successfully!';
+                            timeMessage.textContent = 'Time taken: ' + timeTaken + ' seconds';
+                        } else {
+                            statusMessage.textContent = 'File upload failed: ' + response.message;
+                            timeMessage.textContent = '';
+                        }
+                    } catch (error) {
+                        statusMessage.textContent = 'File uploaded, but there was an error processing the response.';
+                        timeMessage.textContent = '';
+                    }
                 } else {
                     statusMessage.textContent = 'File upload failed. Status: ' + xhr.status;
                     timeMessage.textContent = '';
