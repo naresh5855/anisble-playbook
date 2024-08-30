@@ -1,1 +1,8 @@
-We tested the read and write throughput on the NAS mount, and it didn’t take more than 30 to 60 seconds. To replicate the architecture, I created a simple Flask app, ran it with uWSGI, and hosted it on NGINX with similar configurations. The file seems to be uploading within approximately 29 seconds. Since production is currently running, we can't debug further. Tomorrow, during the platform release, I'll point the DNS and LBaaS to my simple Flask file upload service and conduct tests to identify the bottleneck.
+proxy_buffer_size 128k;
+proxy_buffers 4 256k;
+proxy_busy_buffers_size 256k;
+    proxy_connect_timeout 120s;
+    proxy_send_timeout 120s;
+    proxy_read_timeout 120s;
+
+    We haven't received a response from the vault team yet. We'll follow up again today, but please note that this might be an intermittent issue. It won't cause problems all the time. Please try submitting again, and let us know if you're still encountering the issue.
