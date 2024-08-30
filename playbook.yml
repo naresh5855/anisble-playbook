@@ -5,4 +5,4 @@ proxy_busy_buffers_size 256k;
     proxy_send_timeout 120s;
     proxy_read_timeout 120s;
 
-    We haven't received a response from the vault team yet. We'll follow up again today, but please note that this might be an intermittent issue. It won't cause problems all the time. Please try submitting again, and let us know if you're still encountering the issue.
+    Sure, if patching or deployment occurs, the entire service will go down. I want to test some changes in NGINX, which is why I need help replicating this issue in ILEs.
