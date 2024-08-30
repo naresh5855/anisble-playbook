@@ -7,51 +7,47 @@
 </head>
 <body>
     <h1>Upload a File</h1>
-    <form action="http://your-server/upload" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file">
+    <form id="uploadForm" action="http://your-server/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput">
         <input type="submit" value="Upload">
     </form>
+    
+    <p id="statusMessage"></p>
+    <p id="timeMessage"></p>
+
+    <script>
+        document.getElementById('uploadForm').onsubmit = function(event) {
+            event.preventDefault(); // Prevent the default form submission
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput');
+            formData.append('file', fileInput.files[0]);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', this.action, true);
+            
+            xhr.onload = function() {
+                const statusMessage = document.getElementById('statusMessage');
+                const timeMessage = document.getElementById('timeMessage');
+                
+                if (xhr.status === 200) {
+                    statusMessage.textContent = 'File uploaded successfully!';
+                    const now = new Date();
+                    timeMessage.textContent = 'Upload completed at: ' + now.toLocaleTimeString();
+                } else {
+                    statusMessage.textContent = 'File upload failed. Status: ' + xhr.status;
+                    timeMessage.textContent = '';
+                }
+            };
+
+            xhr.onerror = function() {
+                const statusMessage = document.getElementById('statusMessage');
+                statusMessage.textContent = 'An error occurred during the file upload.';
+                timeMessage.textContent = '';
+            };
+
+            xhr.send(formData);
+        };
+    </script>
 </body>
 </html>
-
-
-from flask import Flask, request, redirect, url_for
-
-app = Flask(__name__)
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return 'No file part', 400
-    file = request.files['file']
-    if file.filename == '':
-        return 'No selected file', 400
-    file.save('/path/to/save/' + file.filename)
-    return 'File uploaded successfully', 200
-
-if __name__ == "__main__":
-    app.run()
-
-
-[uwsgi]
-module = app:app
-
-master = true
-processes = 5
-
-socket = /tmp/yourapp.sock
-chmod-socket = 660
-vacuum = true
-
-die-on-term = true
-
-server {
-    listen 80;
-    server_name your-server-name;
-
-    location /upload {
-        client_max_body_size 20G;  # Adjust according to your needs
-        include uwsgi_params;
-        uwsgi_pass unix:/tmp/yourapp.sock;
-    }
-}
