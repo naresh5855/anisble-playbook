@@ -1,1 +1,5 @@
-Based on the analysis below, the request is being passed to the sys workflows service. Approximately 100 queries are taking more than 60 seconds, causing the sys-wf NGINX to return with a response after the nginx_ui times out. Jaylen is working on replicating this issue in the sbx-beta environment. Once done, we will adjust the timeouts in nginx_ui and also check the send timeout from sys-wf NGINX, as it is able to make queries and receive responses, as observed in the sys-wf logs. This will help us determine if the issue still persists.
+During our recent debugging efforts, we discovered that LBaaS is causing significant delays in our file uploads. When we bypass LBaaS, the same files upload in around 30 seconds. However, when routed through LBaaS, the upload time extends to around 45 minutes.
+
+We suspect there might be something in the LBaaS configuration that's blocking or slowing down the upload process. Could you help us by checking the LBaaS logs to identify any potential issues on your end?
+
+Your assistance in resolving this would be greatly appreciated.
