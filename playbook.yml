@@ -1,11 +1,7 @@
-As mentioned previously, we are still awaiting a case update. Could you please confirm if it is mandatory to proceed through the Command Center to engage your team for further troubleshooting?
+As per our initial discussion, we were informed that a vendor request would be created and that you would be engaging them early this morning. However, we will go ahead and contact the Command Center as well for further assistance.
 
-Regarding the LBaaS configuration, we understand that both the old and new setups are on the same devices, which could be contributing to the issue. However, in our tests, when we bypassed LBaaS and used the direct URL, the file uploads were completed much faster and as expected. This suggests that the issue is tied to LBaaS.
+Regarding the LBaaS configuration, we understand that the old and new LBaaS setups are on the same device, which would likely result in similar behavior. That said, we’ve tested the uploads both with and without LBaaS, and when bypassing LBaaS and using the direct URL, the file uploads work as expected and significantly faster.
 
-We would like to ask a few additional questions:
+We would like to ask a few additional questions to help identify the issue:
 
-Are there any server-side changes or differences when accessing the service through the load balancer compared to the direct URL?
-Could there be any additional configuration within the load balancer that is affecting the upload speeds?
-We’ve observed significantly faster uploads using host-based URLs. Is there anything on the server side that could be causing the discrepancy when using the load balancer?
-Please advise on the next steps and let us know if engaging with the Command Center is required at this point.
-
+Are there any server-side changes or differences when using the load balancer versus the direct URL?
