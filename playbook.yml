@@ -1,5 +1,11 @@
-Hi Savitha,
+As mentioned previously, we are still awaiting a case update. Could you please confirm if it is mandatory to proceed through the Command Center to engage your team for further troubleshooting?
 
-We are encountering a "permission denied" issue while retrieving credentials from the production Vault. We are able to log in to the Vault and successfully generate a token using the secret, but other API calls are failing due to permission denied errors.
+Regarding the LBaaS configuration, we understand that both the old and new setups are on the same devices, which could be contributing to the issue. However, in our tests, when we bypassed LBaaS and used the direct URL, the file uploads were completed much faster and as expected. This suggests that the issue is tied to LBaaS.
 
-Could you please help us resolve this as it is impacting our production environment?
+We would like to ask a few additional questions:
+
+Are there any server-side changes or differences when accessing the service through the load balancer compared to the direct URL?
+Could there be any additional configuration within the load balancer that is affecting the upload speeds?
+We’ve observed significantly faster uploads using host-based URLs. Is there anything on the server side that could be causing the discrepancy when using the load balancer?
+Please advise on the next steps and let us know if engaging with the Command Center is required at this point.
+
