@@ -1,5 +1,1 @@
-During our recent debugging efforts, we discovered that LBaaS is causing significant delays in our file uploads. When we bypass LBaaS, the same files upload in around 30 seconds. However, when routed through LBaaS, the upload time extends to around 45 minutes.
-
-We suspect there might be something in the LBaaS configuration that's blocking or slowing down the upload process. Could you help us by checking the LBaaS logs to identify any potential issues on your end?
-
-Your assistance in resolving this would be greatly appreciated.
+The file upload to /gcp/objects is handled directly by the UI code, and it appears that LBaaS within the UI component is causing the slow upload speeds. It is possible to bypass LBaaS by using NGINX as a reverse proxy on the same port that LBaaS is configured to listen on. However, this could lead to unforeseen issues that may arise.
