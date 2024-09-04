@@ -1,1 +1,11 @@
-Additionally, from your perspective, this appears to be a server-side issue. Could you please let us know what specific issues you're seeing from the logs?
+location / {
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header Host $host;
+    proxy_pass https://ah-1153955-001.sdi.corp.bankofamerica.com:21289/;
+    
+    # Increase the timeout settings
+    proxy_connect_timeout 120s;
+    proxy_send_timeout 120s;
+    proxy_read_timeout 120s;
+}
