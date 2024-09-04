@@ -1,1 +1,5 @@
-The file upload to /gcp/objects is handled directly by the UI code, and it appears that LBaaS within the UI component is causing the slow upload speeds. It is possible to bypass LBaaS by using NGINX as a reverse proxy on the same port that LBaaS is configured to listen on. However, this could lead to unforeseen issues that may arise.
+Hi Savitha,
+
+We are encountering a "permission denied" issue while retrieving credentials from the production Vault. We are able to log in to the Vault and successfully generate a token using the secret, but other API calls are failing due to permission denied errors.
+
+Could you please help us resolve this as it is impacting our production environment?
