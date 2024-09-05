@@ -1,11 +1,3 @@
-location / {
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $remote_addr;
-    proxy_set_header Host $host;
-    proxy_pass https://ah-1153955-001.sdi.corp.bankofamerica.com:21289/;
-    
-    # Increase the timeout settings
-    proxy_connect_timeout 120s;
-    proxy_send_timeout 120s;
-    proxy_read_timeout 120s;
-}
+We can disregard the UAS lanes since NGINX services are not used there. It appears the timeouts captured are related to the keepalive_timeout settings in all NGINX configurations.
+
+However, we have implemented different changes related to the upstream timeout.
