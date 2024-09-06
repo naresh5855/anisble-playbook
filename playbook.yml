@@ -1,3 +1,1 @@
-We can disregard the UAS lanes since NGINX services are not used there. It appears the timeouts captured are related to the keepalive_timeout settings in all NGINX configurations.
-
-However, we have implemented different changes related to the upstream timeout.
+ps -eo pid,ppid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command | grep 'uwsgi'
