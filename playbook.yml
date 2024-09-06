@@ -1,1 +1,7 @@
-ps -eo pid,ppid,user,%cpu,%mem,vsz,rss,tty,stat,start,time,command | grep 'uwsgi'
+After investigating the recent issue in KAS, I’ve identified that following the spawning of worker PIDs, the _call_task method is being invoked recursively to obtain a token from Vault. The issue arises because these requests are being directed to the service itself, rather than the external Vault service. This recursive self-call behavior appears to be the reason why all the PIDs are being occupied, leading to the unresponsiveness of the application.
+
+Interestingly, I have not observed this behavior in UAS. The absence of these recursive calls in UAS is likely why we are not encountering the same issue there.
+
+It seems that the root cause lies in the incorrect configuration of the Vault URL in KAS, which is causing the system to make calls to itself, thereby consuming all worker resources.
+
+Please let me know if you need further details or if there are any specific actions you would like me to take next.
