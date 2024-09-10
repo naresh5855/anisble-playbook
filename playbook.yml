@@ -1,7 +1,1 @@
-I wanted to provide an update regarding the ongoing issue. The LBaaS/vendor team is still triaging the problem, and last Friday we were able to confirm that the issue is not related to the OS (RHEL).
-
-Today, we will be capturing client-side network logs using Wireshark with assistance from the LBaaS team to gather more insights.
-
-In the meantime, we have implemented a temporary fix by adjusting the buffer size in LBaaS, which has reduced the upload time to approximately 1 to 2 minutes per file.
-
-If the LBaaS team is unable to determine the root cause, we plan to proceed with permanently implementing the buffer size changes from LBaaS as a workaround.
+Additionally, it may not be ideal to modify individual user settings. We need a solution that works without requiring changes on the client side, as the clients are set to default configurations and cannot be overridden
