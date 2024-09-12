@@ -1,1 +1,73 @@
-Additionally, it may not be ideal to modify individual user settings. We need a solution that works without requiring changes on the client side, as the clients are set to default configurations and cannot be overridden
+dev1_hosts:
+  - hostname: ah-1105637-001.sdi.corp.bankofamerica.com
+    kas_port: 8092
+    stats_port: 9192
+  - hostname: ah-1105637-002.sdi.corp.bankofamerica.com
+    kas_port: 8092
+    stats_port: 9193
+  - hostname: ah-1180002-002.sdi.corp.bankofamerica.com
+    uas_port: 8092
+    stats_port: 9292  # Only used for UAS-related deployments
+
+dev2_hosts:
+  - hostname: ah-2205637-001.sdi.corp.bankofamerica.com
+    kas_port: 8095
+    stats_port: 9195
+  - hostname: ah-2205637-002.sdi.corp.bankofamerica.com
+    uas_port: 8095
+    stats_port: 9295
+
+
+
+- name: Deploy configurations based on host's service type
+  hosts: all
+  gather_facts: no
+  vars:
+    env: "{{ env_var | default('dev1') }}"  # Define 'env' with default as 'dev1'
+
+  tasks:
+    - name: Include variables from main.yml
+      include_vars:
+        file: "{{ playbook_dir }}/main.yml"
+        name: host_info
+
+    - name: Deploy nginx.conf for KAS
+      template:
+        src: "templates/nginx.conf.j2"
+        dest: "/etc/nginx/nginx.conf"
+      vars:
+        kas_port: "{{ item.kas_port }}"
+      when:
+        - item.hostname == inventory_hostname
+        - item.kas_port is defined
+      with_items: "{{ host_info[env + '_hosts'] }}"
+      loop_control:
+        loop_var: item
+
+    - name: Deploy uwsgi.ini for stats (wherever nginx.conf is deployed)
+      template:
+        src: "templates/uwsgi_stats.ini.j2"
+        dest: "/etc/uwsgi/uwsgi.ini"
+      vars:
+        stats_port: "{{ item.stats_port }}"
+      when:
+        - item.hostname == inventory_hostname
+        - item.kas_port is defined
+      with_items: "{{ host_info[env + '_hosts'] }}"
+      loop_control:
+        loop_var: item
+
+    - name: Deploy uwsgi.ini for UAS
+      template:
+        src: "templates/uwsgi.ini.j2"
+        dest: "/etc/uwsgi/uwsgi.ini"
+      vars:
+        uas_port: "{{ item.uas_port }}"
+      when:
+        - item.hostname == inventory_hostname
+        - item.uas_port is defined
+      with_items: "{{ host_info[env + '_hosts'] }}"
+      loop_control:
+        loop_var: item
+
+
