@@ -1,5 +1,1 @@
-Hi Nathan,
-
-The non-prod tester has TCP timestamps enabled as well. Could we set up a call to discuss possible workaround solutions? Please let me know if 10:30 CT works for you.
-
-For your information, I’ve already tried switching the production LBaaS (test) to the non-prod pool, but I am still experiencing the same delays.
+We are encountering file upload issues in production, and the load balancer (LBAAS) team has suggested some changes. We need your assistance to implement these changes and provide a performance report, including upload times, before and after the modifications. Could you please let us know your availability to accommodate this?
