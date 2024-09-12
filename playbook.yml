@@ -1,1 +1,5 @@
-"I have created a playbook to deploy nginx_ui, nginx, and gcp_sys_workflows.ini files for dev1. Please review the changes, add the remaining lane ports and hostnames to the system_configs.yml, and test it."
+Hi Nathan,
+
+The non-prod tester has TCP timestamps enabled as well. Could we set up a call to discuss possible workaround solutions? Please let me know if 10:30 CT works for you.
+
+For your information, I’ve already tried switching the production LBaaS (test) to the non-prod pool, but I am still experiencing the same delays.
