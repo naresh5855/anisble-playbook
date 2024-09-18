@@ -1,10 +1,1 @@
-I hope this email finds you well.
-
-I wanted to share my thoughts regarding the inactive sessions we’ve been seeing in the DB utility report. Based on my understanding, these sessions are expected to be there. They are part of the connection pool, and they remain inactive until a request reaches the pool, at which point they become active again. This behavior aligns with how connection pooling typically functions.
-
-However, I have a feeling that we might be missing some underlying issue that isn’t immediately obvious from these reports. To dig deeper into this, we plan to replicate the issue in the dev lanes to better understand the circumstances under which these connections remain inactive or cause other problems.
-
-At the same time, we would greatly appreciate DBA support to help us investigate further. Specifically, we’re hoping Romil or someone from the DBA team can look into any logs or additional metrics from the database side that might shed light on what’s happening. I understand that it may be difficult to get immediate DBA involvement, but it would be extremely helpful to have that support while we work through this.
-
-Thank you for your understanding, and we’ll keep you updated as we make progress on this.
-
+Additionally, we will verify whether this parameter is effectively recycling the inactive sessions by temporarily disabling the idle-timeout setting from the database. This will allow us to observe if the feature successfully operates for a 10-minute period—whether the PID is being cleared—or if there's an issue with uWSGI holding onto the connection. We'll also look into finding any other related issues that might arise.
