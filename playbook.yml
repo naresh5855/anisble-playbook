@@ -1,7 +1,18 @@
-Masthan,
+- name: Collect ATF Tests Block
+  block:
+    - name: Set ignore errors
+      set_fact:
+        local_ignore_val: "{{ local_ignore_reg | default('false') }}"
 
-There is no limit set for file uploads. Based on the time ranges below, we will adjust the NGINX timeout settings to prevent 500 errors.
+    - name: Set package name
+      set_fact:
+        local_package_name: "{{ 'gcp_kernel' if repo == 'gcp' else repo }}"
 
-Maggie,
-
-Are we calculating only the file upload time or including workflow execution in Priya’s case? Before applying the changes, it took me 40 minutes, but afterward, it only took 1 minute to upload the file
+    - name: Collect ATF Tests
+      shell: |
+        source venv/bin/activate
+        python -m gcp_kernel.testing.atf.collector -r {{ local_package_name }} -v {{ normalized_version }} -e {{ deploy_lane }} {% if gcp_version is version_compare('4.30', '>=') %} -b {{ branch_name }} {% endif %}
+      args:
+        chdir: "{{ deployment_root }}"
+      register: results
+      ignore_errors: "{{ local_ignore_val }}"
