@@ -1,1 +1,7 @@
-Additionally, we will verify whether this parameter is effectively recycling the inactive sessions by temporarily disabling the idle-timeout setting from the database. This will allow us to observe if the feature successfully operates for a 10-minute period—whether the PID is being cleared—or if there's an issue with uWSGI holding onto the connection. We'll also look into finding any other related issues that might arise.
+Masthan,
+
+There is no limit set for file uploads. Based on the time ranges below, we will adjust the NGINX timeout settings to prevent 500 errors.
+
+Maggie,
+
+Are we calculating only the file upload time or including workflow execution in Priya’s case? Before applying the changes, it took me 40 minutes, but afterward, it only took 1 minute to upload the file
