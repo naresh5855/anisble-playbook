@@ -1,18 +1,5 @@
-- name: Collect ATF Tests Block
-  block:
-    - name: Set ignore errors
-      set_fact:
-        local_ignore_val: "{{ local_ignore_reg | default('false') }}"
-
-    - name: Set package name
-      set_fact:
-        local_package_name: "{{ 'gcp_kernel' if repo == 'gcp' else repo }}"
-
-    - name: Collect ATF Tests
-      shell: |
-        source venv/bin/activate
-        python -m gcp_kernel.testing.atf.collector -r {{ local_package_name }} -v {{ normalized_version }} -e {{ deploy_lane }} {% if gcp_version is version_compare('4.30', '>=') %} -b {{ branch_name }} {% endif %}
-      args:
-        chdir: "{{ deployment_root }}"
-      register: results
-      ignore_errors: "{{ local_ignore_val }}"
+We have identified that some inactive sessions are not being recycled by the application and remain stable. Please note, we are testing this without any idle session timeout enforced by the database.
+In the sbx-dev environment, we are experiencing connection timeout issues. There is a possibility that SQLAlchemy attempted to check in a connection from the pool, but by that time, the database's idle session timeout might have removed it, causing the "not connected" error.
+We would appreciate your assistance in confirming whether the inactive sessions are being recycled properly from the application side. It seems this might not be functioning as expected.
+Additionally, the DBA confirmed that the database pool is set to 1100 connections. However, when we encountered the issue, the number of active and inactive connections did not exceed this limit (around 700 connections were observed).
+Regarding the consumer_profile setting question, we are still trying to verify whether it has been set or not. I've been trying to reach Prakash for the past four days but have not received any response from the DBA. As mentioned earlier, we are experiencing a lack of sufficient support from the DBA team, and timely assistance would be greatly appreciated.
