@@ -1,5 +1,17 @@
-We have identified that some inactive sessions are not being recycled by the application and remain stable. Please note, we are testing this without any idle session timeout enforced by the database.
-In the sbx-dev environment, we are experiencing connection timeout issues. There is a possibility that SQLAlchemy attempted to check in a connection from the pool, but by that time, the database's idle session timeout might have removed it, causing the "not connected" error.
-We would appreciate your assistance in confirming whether the inactive sessions are being recycled properly from the application side. It seems this might not be functioning as expected.
-Additionally, the DBA confirmed that the database pool is set to 1100 connections. However, when we encountered the issue, the number of active and inactive connections did not exceed this limit (around 700 connections were observed).
-Regarding the consumer_profile setting question, we are still trying to verify whether it has been set or not. I've been trying to reach Prakash for the past four days but have not received any response from the DBA. As mentioned earlier, we are experiencing a lack of sufficient support from the DBA team, and timely assistance would be greatly appreciated.
+GCP-UI Trino Credentials Issue:
+Masthan: We need to restart the UI every time we restart the system workflows service.
+Naresh: The UI team needs to handle token retrieval before expiration. I'm not in favor of restarting the UI since it adds overhead to the playbook, and manual server restarts are cumbersome. I'd like to avoid manual restarts altogether.
+
+DHAS Migration:
+Based on our current setup, we won’t be connecting to any DHAS or UHAS host via SSH or Ansible. We’ll connect from edge nodes using Keytab authentication.
+
+File Upload Issue:
+I’ve attached the email for reference:
+Masthan: Can we capture upload metrics and timelines in production? Once we have this data, we can carry out similar validations in SBX lanes and LLE.
+
+File Upload Size	Browser ➔ DNS	LBAAS ➔ NGINX_UI	LBAAS Buffer Size	GCP_UI(/gcp/objects/)
+I explained that moving from the browser to DNS involves just DNS resolution, meaning it will resolve the IPs quickly. It doesn’t take long to reach DNS from the browser, but LBAAS is causing delays. However, Masthan still wants time limits, which doesn’t make sense to me. I also mentioned we should refine this in QA regression. I’ve tested the setup with and without LBAAS, and running a UI test shows no significant impact. If we want to test further, we might need a separate app, but that could introduce extra resource usage.
+
+NGINX Plus Migration:
+We’re encountering SSL errors and upstream issues when reviewing NGINX UI logs. To resolve these, the NGINX Plus team suggested upgrading the NGINX Plus version, but I’m doing this in my own time as Masthan wasn’t on board.
+
