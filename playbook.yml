@@ -1,17 +1,1 @@
-GCP-UI Trino Credentials Issue:
-Masthan: We need to restart the UI every time we restart the system workflows service.
-Naresh: The UI team needs to handle token retrieval before expiration. I'm not in favor of restarting the UI since it adds overhead to the playbook, and manual server restarts are cumbersome. I'd like to avoid manual restarts altogether.
-
-DHAS Migration:
-Based on our current setup, we won’t be connecting to any DHAS or UHAS host via SSH or Ansible. We’ll connect from edge nodes using Keytab authentication.
-
-File Upload Issue:
-I’ve attached the email for reference:
-Masthan: Can we capture upload metrics and timelines in production? Once we have this data, we can carry out similar validations in SBX lanes and LLE.
-
-File Upload Size	Browser ➔ DNS	LBAAS ➔ NGINX_UI	LBAAS Buffer Size	GCP_UI(/gcp/objects/)
-I explained that moving from the browser to DNS involves just DNS resolution, meaning it will resolve the IPs quickly. It doesn’t take long to reach DNS from the browser, but LBAAS is causing delays. However, Masthan still wants time limits, which doesn’t make sense to me. I also mentioned we should refine this in QA regression. I’ve tested the setup with and without LBAAS, and running a UI test shows no significant impact. If we want to test further, we might need a separate app, but that could introduce extra resource usage.
-
-NGINX Plus Migration:
-We’re encountering SSL errors and upstream issues when reviewing NGINX UI logs. To resolve these, the NGINX Plus team suggested upgrading the NGINX Plus version, but I’m doing this in my own time as Masthan wasn’t on board.
-
+but he insists on applying the same tracking system we use in production, which would involve creating a separate app for testing LBAAS. This would require extra resources.
