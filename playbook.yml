@@ -1,4 +1,1 @@
-NGINX Plus Migration:
-There are active SSL errors and upstream timeout issues appearing in the NGINX UI logs. To address them, the NGINX Plus team recommended upgrading to a newer version. However, I’m working on this in my personal time since Masthan wasn’t on board with the idea.
-
-These are just a few of the things that are top of mind for me. I also wanted to mention that during our discussions, when I bring up my points, he usually won’t listen and will say, “If you don’t handle it, I’ll find someone else.”
+Masthan wants me to determine the number of calls made by each workflow. However, I don’t agree with him on this because we already have a profiler to identify the root cause of the DB session issues. There’s no need to spend time finding it again. My focus is to address the actual root cause without unnecessary deviations.
