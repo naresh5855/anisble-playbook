@@ -1,1 +1,4 @@
-but he insists on applying the same tracking system we use in production, which would involve creating a separate app for testing LBAAS. This would require extra resources.
+NGINX Plus Migration:
+There are active SSL errors and upstream timeout issues appearing in the NGINX UI logs. To address them, the NGINX Plus team recommended upgrading to a newer version. However, I’m working on this in my personal time since Masthan wasn’t on board with the idea.
+
+These are just a few of the things that are top of mind for me. I also wanted to mention that during our discussions, when I bring up my points, he usually won’t listen and will say, “If you don’t handle it, I’ll find someone else.”
