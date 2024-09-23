@@ -1,1 +1,5 @@
-Masthan wants me to determine the number of calls made by each workflow. However, I don’t agree with him on this because we already have a profiler to identify the root cause of the DB session issues. There’s no need to spend time finding it again. My focus is to address the actual root cause without unnecessary deviations.
+Investigate inactive session recycling: The development team needs to explore why inactive sessions are not being recycled by the application. They should implement pool logging to trace the lifecycle of connections and verify whether connections are correctly closed and recycled. (Assigned to: Dev Team)
+
+DBA log analysis at failure: During the time of connection failures, we require logs from the DBA, along with the timestamps for the most recent recycling activities. This will help correlate the issue with connection timeouts. (Assigned to: DBA)
+
+Consumer group verification: We need confirmation on whether the GCP_APP_SERVICES_CG consumer group has been created. (Assigned to: DBA)
