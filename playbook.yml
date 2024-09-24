@@ -1,5 +1,1 @@
-Investigate inactive session recycling: The development team needs to explore why inactive sessions are not being recycled by the application. They should implement pool logging to trace the lifecycle of connections and verify whether connections are correctly closed and recycled. (Assigned to: Dev Team)
-
-DBA log analysis at failure: During the time of connection failures, we require logs from the DBA, along with the timestamps for the most recent recycling activities. This will help correlate the issue with connection timeouts. (Assigned to: DBA)
-
-Consumer group verification: We need confirmation on whether the GCP_APP_SERVICES_CG consumer group has been created. (Assigned to: DBA)
+Below is a feature to bypass the workflow promotion task when deploying the same version twice or when subsequent tasks fail after the workflow promotion, as it encounters a unique string constraint issue during deployment.
