@@ -1,1 +1,1 @@
-Below is a feature to bypass the workflow promotion task when deploying the same version twice or when subsequent tasks fail after the workflow promotion, as it encounters a unique string constraint issue during deployment.
+I'll coordinate with the LBAAS team to implement the changes in the remaining lanes. Since these changes are made from the backend, they won't be visible in the LBAAS portal. We will need to inform them to create a custom window and adjust the receive window to 2048.
