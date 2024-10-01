@@ -1,3 +1,2 @@
-The driver memory being set to 8g seems to be sufficient for execution. However, the issue appears to be that the spark.driver.maxResultSize is set to 1g, which is too small for handling the result from our larger datasets (such as the 1.5 GB file).
-
-I suggest increasing this limit to at least 2g to resolve the issue. I've created a ticket for this and will keep you updated.
+Romil,
+Since the Spark workflows aren't related to LBAAS, I'll proceed with promoting the changes in other lanes. I'll keep you updated once it's done.
