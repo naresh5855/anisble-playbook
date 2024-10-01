@@ -1,1 +1,7 @@
-I'll coordinate with the LBAAS team to implement the changes in the remaining lanes. Since these changes are made from the backend, they won't be visible in the LBAAS portal. We will need to inform them to create a custom window and adjust the receive window to 2048.
+Thanks, Maggie.
+
+Based on the pure Python workflows, LBAAS is now working as expected after adjusting the receive window on the LBAAS side.
+
+Ashwin, since these changes are related to the application from Spark, can we have someone from the dev team look into it?
+
+We also need to handle the Spark workflows separately to increase the heap size and the maximum result size for Spark.
