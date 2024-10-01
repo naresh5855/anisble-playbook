@@ -1,7 +1,8 @@
-Hi Shankar,
+- name: Set ignore errors
+  set_fact:
+    local_ignore_val: "{{ ignore_signal | string | lower }}"
 
-As part of the upcoming changes, there will be no significant impact on users. However, they may experience intermittent connections or minor disruptions for approximately half an hour.
-
-Please let me know if you'd like any further details.
-
-I’ve copied Ashwin and Ryo on this for their reference as well.
+- name: Run a task that might fail
+  shell: "exit 1"
+  ignore_errors: "{{ local_ignore_val == 'true' }}"
+  any_errors_fatal: "{{ local_ignore_val == 'false' }}"
