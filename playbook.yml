@@ -1,8 +1,5 @@
-- name: Set ignore errors
-  set_fact:
-    local_ignore_val: "{{ ignore_signal | string | lower }}"
+cx_Oracle.InterfaceError: not connected – This typically occurs when the connection is no longer active during an attempt to fetch data.
+cx_Oracle.DatabaseError: DPI-1080: connection was closed by ORA-3113 – This error points to an abrupt termination of the Oracle connection.
+After analyzing the logs, I’ve seen multiple occurrences of these errors, but I’ve also noticed a retry mechanism kicking in automatically from the framework. As a result, the next call to the database has succeeded.
 
-- name: Run a task that might fail
-  shell: "exit 1"
-  ignore_errors: "{{ local_ignore_val == 'true' }}"
-  any_errors_fatal: "{{ local_ignore_val == 'false' }}"
+I’m not certain if this error is causing the workflow to fail, as the retries seem to allow for eventual success.
