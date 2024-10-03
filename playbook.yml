@@ -1,5 +1,72 @@
-cx_Oracle.InterfaceError: not connected – This typically occurs when the connection is no longer active during an attempt to fetch data.
-cx_Oracle.DatabaseError: DPI-1080: connection was closed by ORA-3113 – This error points to an abrupt termination of the Oracle connection.
-After analyzing the logs, I’ve seen multiple occurrences of these errors, but I’ve also noticed a retry mechanism kicking in automatically from the framework. As a result, the next call to the database has succeeded.
+Integrating Shared GCP Virtual Environment with User Virtual Environments
+Objective
+This document outlines the steps to configure a shared GCP virtual environment (venv) for use within user-specific virtual environments, avoiding redundant installations of GCP packages across multiple venvs. It also details how to modify the PYTHONPATH within the user's venv to reference the shared GCP venv.
 
-I’m not certain if this error is causing the workflow to fail, as the retries seem to allow for eventual success.
+Steps to Configure a Shared GCP venv
+1. Create Shared GCP Virtual Environment
+A shared GCP venv is created to hold the necessary GCP modules, which multiple user environments can reference.
+
+Command:
+bash
+Copy code
+python3 -m venv /path/to/shared/gcp/venv
+source /path/to/shared/gcp/venv/bin/activate
+pip install google-cloud-storage  # Install any required GCP packages
+deactivate
+2. Create User Virtual Environment
+Each user or project can have its own virtual environment. Here’s how to create and set up the user venv:
+
+Command:
+bash
+Copy code
+python3 -m venv /path/to/user/venv
+source /path/to/user/venv/bin/activate
+3. Modify the PYTHONPATH to Reference Shared GCP venv
+A. Directly Appending PYTHONPATH in the activate Script
+To ensure the user’s venv can reference the shared GCP venv’s packages, we will append the shared GCP venv’s site-packages directory to the PYTHONPATH. This will make GCP modules available to the user environment without duplicating the installation.
+
+Command to Append PYTHONPATH:
+bash
+Copy code
+echo 'export PYTHONPATH=/path/to/shared/gcp/venv/lib/python3.x/site-packages:$PYTHONPATH' >> /path/to/user/venv/bin/activate
+Explanation: This command updates the activate script of the user’s virtual environment by appending the shared GCP venv path to the PYTHONPATH.
+4. Installing User Wheel and Referencing GCP venv
+Once the PYTHONPATH has been updated, install the user's wheel package, ensuring that the GCP modules are not reinstalled.
+
+Command to Install User Wheel:
+bash
+Copy code
+pip install /path/to/user_package.whl
+pip will now reference the GCP modules from the shared environment using the PYTHONPATH, ensuring the GCP modules are not reinstalled within the user venv.
+
+5. Testing the Setup
+To verify that the GCP packages are being accessed from the shared environment, test the installation by importing GCP modules and listing installed packages:
+
+A. Verify GCP Package Import
+Run the following command to check if the GCP package (e.g., google-cloud-storage) can be imported correctly from the shared GCP environment:
+
+bash
+Copy code
+python -c "from google.cloud import storage; print(storage.__name__)"
+If everything is set up correctly, this will output:
+
+bash
+Copy code
+google.cloud.storage
+B. Check Installed Packages
+To confirm the GCP modules were not installed directly in the user environment, run:
+
+bash
+Copy code
+pip list
+The GCP modules should not appear here, as they are referenced from the shared environment.
+
+6. Recap of Workflow
+Create shared GCP venv: Holds the GCP modules.
+Create user venv: Each user has their own environment.
+Append PYTHONPATH: Modify the user’s environment to reference the GCP venv by updating the activate script.
+Install user wheel: Install user packages while skipping the GCP modules.
+Test: Verify that the GCP modules are referenced correctly.
+Conclusion
+By configuring the user venv to reference a shared GCP venv, we avoid redundant GCP installations across multiple environments, leading to faster deployments and reduced storage usage. The steps outlined here provide an efficient way to manage shared dependencies while keeping user environments isolated for project-specific installations.
+
