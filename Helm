@@ -1,0 +1,173 @@
+---
+- name: Helm Deployment (Install/Upgrade)
+  hosts: kubernetes_servers
+  vars_files:
+    - "{{ inventory_dir }}/group_vars/all.yml"
+  
+  tasks:
+    - name: Deploy using Helm
+      include_role:
+        name: helm_deployer
+        tasks_from: deploy
+      vars:
+        action: deploy
+
+
+
+---
+# Helm Defaults
+helm_timeout: "15m"
+helm_atomic: true       # Uses Helm's native rollback
+helm_wait: true
+force_upgrade: false
+
+# Image Defaults (overridden in CI)
+ci_image_repository: ""
+ci_image_tag: ""
+
+
+---
+- name: Validate cluster access
+  command: kubectl cluster-info
+  register: cluster_check
+  changed_when: false
+  failed_when: cluster_check.rc != 0
+
+- name: Verify Helm chart exists
+  assert:
+    that:
+      - helm_chart_path | exists
+    fail_msg: "Helm chart missing at {{ helm_chart_path }}"
+
+- name: Check required image tags
+  assert:
+    that:
+      - ci_image_repository | length > 0
+      - ci_image_tag | length > 0
+    fail_msg: "ci_image_repository and ci_image_tag must be set"
+
+---
+- name: Validate and Deploy Helm Chart
+  hosts: localhost
+  vars:
+    helm_deploy_dir: "{{ playbook_dir }}/HELM_DEPLOY"
+    required_env_files:
+      - values.yaml
+
+  tasks:
+    - name: Validate HELM_DEPLOY directory
+      ansible.builtin.stat:
+        path: "{{ helm_deploy_dir }}"
+      register: helm_dir
+      failed_when: not helm_dir.stat.exists
+      ignore_errors: yes
+
+    - name: Fail if HELM_DEPLOY missing
+      ansible.builtin.fail:
+        msg: "HELM_DEPLOY directory not found at {{ helm_deploy_dir }}"
+      when: not helm_dir.stat.exists
+
+    - name: Check for commons.yaml
+      ansible.builtin.stat:
+        path: "{{ helm_deploy_dir }}/commons.yaml"
+      register: commons_file
+      ignore_errors: yes
+
+    - name: Check for environment files
+      ansible.builtin.stat:
+        path: "{{ helm_deploy_dir }}/{{ env }}/{{ item }}"
+      register: env_files
+      loop: "{{ required_env_files }}"
+      ignore_errors: yes
+
+    - name: Validate at least one config exists
+      ansible.builtin.assert:
+        that:
+          - commons_file.stat.exists or env_files.results[0].stat.exists
+        fail_msg: "Neither commons.yaml nor {{ env }}/values.yaml found in HELM_DEPLOY"
+        success_msg: |
+          Config files found:
+          - commons.yaml: {{ commons_file.stat.exists | default(False) }}
+          - {{ env }}/values.yaml: {{ env_files.results[0].stat.exists | default(False) }}
+
+    - name: Load commons.yaml if exists
+      ansible.builtin.include_vars:
+        file: "{{ helm_deploy_dir }}/commons.yaml"
+        name: common_values
+      when: commons_file.stat.exists
+      ignore_errors: yes
+
+    - name: Load environment values
+      ansible.builtin.include_vars:
+        file: "{{ helm_deploy_dir }}/{{ env }}/values.yaml"
+        name: env_values
+      when: env_files.results[0].stat.exists
+      ignore_errors: yes
+
+    - name: Merge configurations
+      ansible.builtin.set_fact:
+        final_values: "{{ common_values | default({}) | combine(env_values | default({}), recursive=true) }}"
+
+    - name: Deploy Helm chart
+      community.kubernetes.helm:
+        name: "{{ release_name | default(app_name) }}-{{ env }}"
+        chart_ref: "{{ chart_path }}"
+        namespace: "{{ namespace | default(env) }}"
+        values: "{{ final_values }}"
+        atomic: true
+        wait: true
+
+
+
+---
+- name: Deploy Helm Chart (Pure Ansible)
+  hosts: localhost
+  vars:
+    helm_deploy_dir: "{{ playbook_dir }}/../HELM_DEPLOY"
+    helm_timeout: "10m"
+
+  tasks:
+    - name: Include validation playbook
+      ansible.builtin.include_playbook:
+        file: validate_helm.yaml
+      vars:
+        env: "{{ env }}"
+
+    - name: Load commons.yaml if exists
+      ansible.builtin.include_vars:
+        file: "{{ helm_deploy_dir }}/commons.yaml"
+        name: common_values
+      when: commons_file.stat.exists
+      ignore_errors: yes
+
+    - name: Load environment values
+      ansible.builtin.include_vars:
+        file: "{{ helm_deploy_dir }}/{{ env }}/values.yaml"
+        name: env_values
+
+    - name: Generate merged values file
+      ansible.builtin.template:
+        src: |
+          # Merged values
+          {{ common_values | default({}) | to_nice_yaml }}
+          {{ env_values | to_nice_yaml }}
+        dest: "/tmp/{{ release_name }}-values.yaml"
+
+    - name: Install/Upgrade Helm release
+      ansible.builtin.command: >
+        helm upgrade --install
+        {{ release_name }}
+        {{ chart_path }}
+        --namespace {{ namespace | default(env) }}
+        --values /tmp/{{ release_name }}-values.yaml
+        {% if helm_timeout %}--timeout {{ helm_timeout }}{% endif %}
+        --atomic
+        --wait
+      args:
+        chdir: "{{ helm_chart_path | dirname | default(playbook_dir) }}"
+      register: helm_result
+      changed_when: "'STATUS: deployed' in helm_result.stdout"
+
+    - name: Show deployment result
+      ansible.builtin.debug:
+        var: helm_result.stdout_lines
